@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import './App.css';
+import './App1.css';
 
 function App() {
   const [animKey, setAnimKey] = useState(0);
