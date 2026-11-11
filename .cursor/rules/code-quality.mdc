@@ -1,0 +1,23 @@
+---
+description: 代码质量、健壮性与工程化约定
+alwaysApply: true
+---
+
+# 代码质量与健壮性
+
+## 格式与检查
+
+- 格式交给 Prettier（配置见 `.prettierrc.json`），不要手动纠结缩进/引号；ESLint 只管代码质量，已关闭与 Prettier 冲突的规则。
+- 提交前 husky + lint-staged 会自动对改动文件跑 `eslint --fix` + `prettier --write`，不要绕过钩子。
+- 命令：`pnpm lint`、`pnpm format`、`pnpm format:check`。
+
+## 健壮性
+
+- 全局已挂 `ErrorBoundary`（`src/components/ErrorBoundary.tsx`）在 `App` 最外层；渲染期错误会被兜住，不要再往上包一层整页级边界。
+- 路由页面统一走懒加载：在 `src/router` 用 `React.lazy(() => import('@/views/xxx'))`，`Layout` 已用 `Suspense` + `PageLoading` 兜底。新增页面照此模式，不要直接静态 import 进路由。
+- 未匹配路由渲染 `src/views/not-found`，不要用重定向掩盖 404。
+
+## 用户反馈
+
+- 请求错误已在 `src/api/request.ts` 响应拦截器里用 `sonner` 全局 toast 提示；普通接口错误不必在页面重复弹错。
+- 需要成功/自定义提示时，在业务层调用 `toast.success(...)` 等。
