@@ -1,4 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios';
+import { toast } from 'sonner';
 
 /**
  * 全局 axios 实例：统一 baseURL、超时、拦截器与错误处理。
@@ -16,11 +17,13 @@ request.interceptors.request.use((config) => {
   return config;
 });
 
-// 响应拦截器：统一剥离 data、集中处理错误
+// 响应拦截器：集中处理错误 + 全局提示
 request.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 可在此做全局错误提示 / 401 跳转登录等
+    const message = error?.response?.data?.message ?? error?.message ?? '请求失败，请稍后重试';
+    // 全局错误提示；401 等可在此做跳转登录
+    toast.error(message);
     return Promise.reject(error);
   },
 );
