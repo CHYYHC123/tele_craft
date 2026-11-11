@@ -1,0 +1,32 @@
+---
+description: 路由页面放在 src/views 下，每个页面一个独立组件
+alwaysApply: true
+---
+
+# 路由页面
+
+1. 所有路由页面放在 `src/views/**`。一个路由对应一个目录，页面本身是该目录下的独立组件，入口文件为 `index.tsx`。
+   - 登录页：`src/views/login/index.tsx`，默认导出 `Login`。
+   - 首页：`src/views/home/index.tsx`，默认导出 `Home`。
+   - 路由表只在 `src/router` 中引用这些页面。不要把页面组件写进路由文件，也不要放到 `src/components`。
+
+2. 页面私有的子组件 / 逻辑放在该页面目录下，不要污染全局：
+   - 私有组件：`src/views/<page>/components/**`
+   - 私有 hooks：`src/views/<page>/hooks/**`
+   - 只有被 2 个及以上页面复用时，才上移到全局 `src/components` 或 `src/hooks`。
+
+```tsx
+// src/views/login/index.tsx
+function Login() {
+  return <main>{/* 登录页 */}</main>;
+}
+
+export default Login;
+```
+
+```tsx
+// src/router/index.ts
+import Login from '@/views/login';
+
+// element: createElement(Login)
+```

@@ -1,0 +1,19 @@
+---
+description: 命名约定与导入路径规范
+alwaysApply: true
+---
+
+# 命名与导入
+
+## 导入
+
+- 跨目录一律用路径别名 `@/`（`@ → src`），禁止 `../../` 跨层相对路径；同目录可用 `./`。
+- 仅类型导入用 `import type { ... }`（项目开启了 `verbatimModuleSyntax`）。
+
+## 命名
+
+- 目录/页面：小写短横线，如 `views/user-profile/`。
+- 组件文件与组件名：`PascalCase`（组件名），文件默认导出同名组件。
+- hooks：`useXxx`；store：`useXxxStore`；api 函数：动词开头 `getUser` / `login`。
+- 类型/接口：`PascalCase`，props 用 `XxxProps`。
+- 常量：`UPPER_SNAKE_CASE`。

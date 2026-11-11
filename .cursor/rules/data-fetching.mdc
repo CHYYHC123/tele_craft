@@ -1,0 +1,40 @@
+---
+description: 接口层（axios）与 react-query 的数据请求规范
+alwaysApply: true
+---
+
+# 数据请求
+
+## 接口层 src/api
+
+- 所有 HTTP 请求通过 `src/api/request.ts` 的 axios 实例，统一配置 baseURL、拦截器、错误处理。
+- 按业务模块拆文件：`src/api/auth.ts`、`src/api/user.ts` …，每个导出纯函数（入参 → Promise 数据）。
+- 接口的请求/响应类型定义在 `src/types`（或模块同名 types），接口函数标注返回类型。
+
+```ts
+// src/api/request.ts
+import axios from 'axios';
+
+const request = axios.create({ baseURL: '/api', timeout: 10_000 });
+export default request;
+
+// src/api/auth.ts
+import request from '@/api/request';
+import type { LoginParams, LoginResult } from '@/types/auth';
+
+export const login = (data: LoginParams) =>
+  request.post<LoginResult>('/login', data).then((r) => r.data);
+```
+
+## react-query（服务端状态）
+
+- 组件/页面不直接调用 api，而是通过封装好的 hook 使用 react-query。
+- 查询用 `useQuery`，写操作用 `useMutation`；query key 统一管理、语义清晰。
+
+```ts
+// src/hooks/useLogin.ts
+import { useMutation } from '@tanstack/react-query';
+import { login } from '@/api/auth';
+
+export const useLogin = () => useMutation({ mutationFn: login });
+```

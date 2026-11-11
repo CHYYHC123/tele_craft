@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { Outlet } from 'react-router';
 
-import LayoutContainer from '@/components/layout-container';
+import LayoutContainer from '@/layouts/layout-container';
 
 const Layout: FC = () => {
   return (

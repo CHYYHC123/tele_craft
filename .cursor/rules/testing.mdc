@@ -1,0 +1,38 @@
+---
+description: 测试策略与规范（个人项目，重回归保护不追覆盖率）
+alwaysApply: true
+---
+
+# 测试
+
+工具：Vitest + React Testing Library（jsdom）。命令：`pnpm test`（watch）/ `pnpm test:run` / `pnpm test:coverage`。
+
+## 原则（个人项目）
+
+- 不追求覆盖率，追求回归保护；覆盖率仅参考，不设门槛。
+- **修 bug 时必补一个复现测试**，防止同一问题回归。
+- 只测公共行为，不测实现细节，重构不应频繁改测试。
+
+## 按分层决定测什么
+
+- `utils/` 纯函数、`store/` 状态逻辑：**重点测**。
+- `api/`：mock axios，测参数与数据解析，不测真实网络。
+- `hooks/`（react-query）：只测核心业务 hook。
+- `components/` `views/`：一般不测；仅对关键交互/核心链路（如登录）写少量测试。
+
+## 约定
+
+- 测试文件与被测文件同目录，命名 `xxx.test.ts(x)`。
+- 可直接用全局 `describe/it/expect`（已开启 globals）。
+- 组件测试用 Testing Library，按角色/文本查询，用 `@testing-library/user-event` 模拟交互。
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { cn } from '@/utils';
+
+describe('cn', () => {
+  it('过滤 falsy', () => {
+    expect(cn('base', false, null, 'on')).toBe('base on');
+  });
+});
+```

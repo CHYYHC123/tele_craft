@@ -1,0 +1,32 @@
+---
+description: React 组件编写规范
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# 组件规范
+
+- 一律函数组件，用 `FC` 标注类型，默认导出；一个文件一个组件。
+- Props 用 `interface XxxProps` 显式声明，不用 `any`。
+- `components/` 下只放纯 UI、无业务的通用组件；有业务逻辑的放对应 `views/<page>/components/`。
+- 组件内不直接写数据请求，数据通过 hooks 传入或在页面层注入。
+- 样式用 Tailwind className，不写内联 style（动态值除外）。
+
+```tsx
+import type { FC } from 'react';
+
+interface ButtonProps {
+  label: string;
+  onClick?: () => void;
+}
+
+const Button: FC<ButtonProps> = ({ label, onClick }) => {
+  return (
+    <button className="rounded-md px-4 py-2" onClick={onClick}>
+      {label}
+    </button>
+  );
+};
+
+export default Button;
+```

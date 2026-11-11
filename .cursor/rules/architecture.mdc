@@ -1,0 +1,34 @@
+---
+description: 项目整体架构、目录分层与依赖方向（总纲）
+alwaysApply: true
+---
+
+# 架构总纲
+
+技术栈：React 19 + Vite + TypeScript(strict) + react-router v8 + @tanstack/react-query + Zustand + axios + Tailwind v4。
+
+## 目录分层
+
+```
+src/
+  api/        接口层：request 封装 + 按业务模块拆的接口函数
+  components/ 全局通用组件（纯 UI，无业务）
+  hooks/      全局通用 hooks（含 react-query 的 useXxxQuery/Mutation）
+  layouts/    布局组件
+  router/     只放路由表，不写页面
+  store/      Zustand 客户端全局状态
+  types/      全局共享类型
+  utils/      纯函数工具
+  views/      路由页面（见 route-views 规则）
+```
+
+## 依赖方向（单向，不可反向）
+
+```
+views → hooks → api / store / utils / types
+```
+
+- `views` 只负责渲染和交互，**禁止直接调用 axios/fetch**，数据一律经 `hooks` 或 `api`。
+- 底层（`api`/`store`/`utils`/`types`）**不得反向 import 页面或 components**。
+- 服务端数据用 react-query（放 `hooks/`）；客户端全局状态用 Zustand（放 `store/`），两者不混用。
+- 一律用 `@/` 别名导入，禁止 `../../` 跨层相对路径。

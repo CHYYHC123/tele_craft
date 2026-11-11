@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
-import Layout from '@/components/layout';
+import Layout from '@/layouts';
 import Home from '@/views/home';
 
 // 路由配置
