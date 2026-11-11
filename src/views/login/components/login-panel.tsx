@@ -2,8 +2,9 @@ import type { FC } from 'react';
 import { toast } from 'sonner';
 
 import tgIcon from '@/assets/image/login/tg.svg';
+import { useTelegramLogin } from '@/views/login/hooks/useTelegramLogin';
 
-const LOGIN_LINK = 'https://t.me/alchemy_pay_bot';
+const LOGIN_LINK = 'https://t.me/@CHEN_HY1';
 const QR_MODULES = 25;
 
 function finderOn(x: number, y: number, originX: number, originY: number): boolean | null {
@@ -35,6 +36,8 @@ const QR_PATH = Array.from({ length: QR_MODULES }, (_, y) =>
 ).join('');
 
 const LoginPanel: FC = () => {
+  const { login, ready, pending } = useTelegramLogin();
+
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(LOGIN_LINK);
@@ -51,14 +54,15 @@ const LoginPanel: FC = () => {
           Log in
         </h1>
         <p className="mt-2 text-sm text-neutral-500">Welcome to Alchemy Pay robot</p>
-
-        <a
-          href={LOGIN_LINK}
-          className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#2F6EFF] text-[15px] font-medium text-white"
+        <button
+          type="button"
+          onClick={login}
+          disabled={!ready || pending}
+          className="mt-8 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#2F6EFF] text-[15px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           <img src={tgIcon} alt="" className="size-5" />
           Log in via telegram
-        </a>
+        </button>
 
         <h2 className="mt-8 text-sm font-semibold text-neutral-900">Can’t open Telegram?</h2>
         <p className="mt-1 text-sm leading-relaxed text-neutral-500">
