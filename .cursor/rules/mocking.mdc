@@ -1,0 +1,32 @@
+---
+description: 接口 mock 规范（MSW）
+alwaysApply: true
+---
+
+# 接口 Mock（MSW）
+
+用 MSW 在网络层拦截请求，业务代码（api/request）无需任何改动。
+
+## 开关与入口
+
+- 开发环境靠 `VITE_ENABLE_MOCK=true` 开启；`src/main.tsx` 会在渲染前启动 worker。
+- 浏览器入口 `src/mocks/browser.ts`，测试入口 `src/mocks/server.ts`（已接入 `src/test/setup.ts`）。
+- worker 脚本 `public/mockServiceWorker.js` 由 `msw init` 生成，不要手改。
+
+## 写 handler
+
+- 所有 mock 登记在 `src/mocks/handlers.ts`，路径必须带上 `VITE_API_BASE_URL` 前缀（与 axios baseURL 一致）。
+- 响应类型复用 `src/types` 里的真实类型，保证 mock 与接口契约一致。
+- 覆盖成功/失败分支，别只写 happy path。
+- 新增真实接口（`src/api/*`）时，同步补一条 handler。
+
+```ts
+import { http, HttpResponse } from 'msw';
+const API = import.meta.env.VITE_API_BASE_URL ?? '/api';
+
+http.get(`${API}/user`, () => HttpResponse.json({ id: '1', name: 'Ada' }));
+```
+
+## 测试里用
+
+测试默认启用 MSW，单个用例可临时覆盖：`server.use(http.post(..., () => HttpResponse.error()))`。

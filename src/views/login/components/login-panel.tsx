@@ -1,51 +1,20 @@
 import type { FC } from 'react';
-import { toast } from 'sonner';
+// import { toast } from 'sonner';
 
 import tgIcon from '@/assets/image/login/tg.svg';
 import { useTelegramLogin } from '@/views/login/hooks/useTelegramLogin';
 
-const LOGIN_LINK = 'https://t.me/@CHEN_HY1';
-const QR_MODULES = 25;
-
-function finderOn(x: number, y: number, originX: number, originY: number): boolean | null {
-  const localX = x - originX;
-  const localY = y - originY;
-  if (localX < 0 || localY < 0 || localX > 6 || localY > 6) return null;
-  const edge = localX === 0 || localY === 0 || localX === 6 || localY === 6;
-  const core = localX >= 2 && localX <= 4 && localY >= 2 && localY <= 4;
-  return edge || core;
-}
-
-function moduleOn(x: number, y: number): boolean {
-  const finders = [
-    finderOn(x, y, 0, 0),
-    finderOn(x, y, QR_MODULES - 7, 0),
-    finderOn(x, y, 0, QR_MODULES - 7),
-  ];
-  for (const finder of finders) {
-    if (finder !== null) return finder;
-  }
-  if (x === 6 || y === 6) return (x + y) % 2 === 0;
-  return (x * 13 + y * 17 + ((x * y) % 11)) % 3 !== 0;
-}
-
-const QR_PATH = Array.from({ length: QR_MODULES }, (_, y) =>
-  Array.from({ length: QR_MODULES }, (_, x) => (moduleOn(x, y) ? `M${x} ${y}h1v1H${x}z` : '')).join(
-    '',
-  ),
-).join('');
-
 const LoginPanel: FC = () => {
   const { login, ready, pending } = useTelegramLogin();
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(LOGIN_LINK);
-      toast.success('Link copied');
-    } catch {
-      toast.error('Could not copy the link');
-    }
-  };
+  // const copyLink = async () => {
+  //   try {
+  //     await navigator.clipboard.writeText(LOGIN_LINK);
+  //     toast.success('Link copied');
+  //   } catch {
+  //     toast.error('Could not copy the link');
+  //   }
+  // };
 
   return (
     <section className="flex min-h-screen w-full min-w-0 flex-1 items-center justify-center bg-white px-6 py-16">
@@ -71,23 +40,23 @@ const LoginPanel: FC = () => {
 
         <div className="mt-4 rounded-2xl bg-[#F4F5F7] px-6 py-8">
           <div className="mx-auto w-fit rounded-2xl bg-white p-4 shadow-sm">
-            <svg
+            {/* <svg
               viewBox={`0 0 ${QR_MODULES} ${QR_MODULES}`}
               className="size-44 text-neutral-900"
               role="img"
               aria-label="Telegram login QR code"
             >
               <path d={QR_PATH} fill="currentColor" />
-            </svg>
+            </svg> */}
           </div>
 
-          <button
+          {/* <button
             type="button"
             onClick={copyLink}
-            className="mx-auto mt-6 flex items-center gap-1.5 text-sm text-neutral-500"
+            className="mx-auto mt-6 flex items-center gap-1.5 text-sm text-neutral-500 cursor-pointer"
           >
             Copy link to clipboard
-          </button>
+          </button> */}
         </div>
       </div>
     </section>

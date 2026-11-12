@@ -1,8 +1,16 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterAll, afterEach, beforeAll } from 'vitest';
 
-// 每个用例后自动清理 DOM，避免相互污染
+import { server } from '@/mocks/server';
+
+// 测试全程启用 MSW：用例里可用 server.use(...) 覆盖单条 mock
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
+
+// 每个用例后清理 DOM + 重置被覆盖的 mock handler，避免相互污染
 afterEach(() => {
   cleanup();
+  server.resetHandlers();
 });
+
+afterAll(() => server.close());
