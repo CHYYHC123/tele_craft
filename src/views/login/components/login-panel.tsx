@@ -22,7 +22,7 @@ const LoginPanel: FC = () => {
         <h1 className="font-display text-4xl font-semibold tracking-tight text-neutral-900">
           Log in
         </h1>
-        <p className="mt-2 text-sm text-neutral-500">Welcome to Alchemy Pay robot</p>
+        <p className="mt-2 text-sm text-neutral-500">Welcome to Tele Craft robot</p>
         <button
           type="button"
           onClick={login}

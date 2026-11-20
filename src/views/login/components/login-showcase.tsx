@@ -33,7 +33,7 @@ const LoginShowcase: FC = () => {
 
       <div className="relative z-10 mt-28 mr-28 ml-10 max-w-xl rounded-[28px] border border-white/35 bg-white/20 p-7 text-white backdrop-blur-md">
         <p className="font-display text-xl leading-snug font-medium">
-          “ We’ve been using Alchemy Pay to create bots and can’t imagine working without it. It’s
+          “ We’ve been using Tele Craft to create bots and can’t imagine working without it. It’s
           incredible. 👍 ”
         </p>
 
