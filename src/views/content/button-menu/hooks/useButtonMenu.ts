@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
+import { useObjectUrls } from '@/hooks/useObjectUrls';
 import type { ActionButtonItem } from '@/types/message';
+import { appendAction, createMessageConfig, dropAction, patchAction } from '@/utils/message-config';
 import { BUTTON_MENU_MAX_COUNT } from '@/views/content/button-menu/constants';
 import type {
   DropPlacement,
@@ -8,11 +10,7 @@ import type {
   MenuButtonPatch,
   MenuRows,
 } from '@/views/content/button-menu/types';
-import {
-  createMenuButton,
-  moveButton,
-  moveButtonToNewRow,
-} from '@/views/content/button-menu/utils';
+import { moveButton, moveButtonToNewRow } from '@/views/content/button-menu/utils';
 
 type ActionPatch = Partial<Pick<ActionButtonItem, 'name' | 'link'>>;
 
@@ -20,16 +18,7 @@ export const useButtonMenu = () => {
   const [rows, setRows] = useState<MenuRows>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const nextId = useRef(1);
-  // 每个按钮的图片预览地址，替换 / 删除 / 卸载时释放
-  const imageUrls = useRef(new Map<number, string>());
-
-  useEffect(() => {
-    const urls = imageUrls.current;
-    return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-      urls.clear();
-    };
-  }, []);
+  const imageUrls = useObjectUrls();
 
   const buttons = rows.flat();
   const selected = buttons.find((item) => item.id === selectedId) ?? null;
@@ -43,16 +32,12 @@ export const useButtonMenu = () => {
     if (!canAdd) return;
     // id 在 updater 外生成，避免 StrictMode 下 updater 执行两次导致 id 跳号
     const id = nextId.current++;
-    setRows((prev) => [...prev, [createMenuButton(id)]]);
+    setRows((prev) => [...prev, [createMessageConfig(id)]]);
     setSelectedId(id);
   };
 
   const removeButton = (id: number) => {
-    const url = imageUrls.current.get(id);
-    if (url) {
-      URL.revokeObjectURL(url);
-      imageUrls.current.delete(id);
-    }
+    imageUrls.release(id);
 
     const nextRows = rows
       .map((row) => row.filter((item) => item.id !== id))
@@ -66,35 +51,20 @@ export const useButtonMenu = () => {
   };
 
   const selectImage = (id: number, file: File) => {
-    const previous = imageUrls.current.get(id);
-    if (previous) URL.revokeObjectURL(previous);
-
-    const url = URL.createObjectURL(file);
-    imageUrls.current.set(id, url);
+    const url = imageUrls.replace(id, file);
     updateButton(id, { image: { url, name: file.name } });
   };
 
   const addAction = (id: number) => {
-    mapButton(id, (item) => {
-      const nextActionId = Math.max(0, ...item.actions.map((action) => action.id)) + 1;
-      return { ...item, actions: [...item.actions, { id: nextActionId, name: '', link: '' }] };
-    });
+    mapButton(id, (item) => ({ ...item, actions: appendAction(item.actions) }));
   };
 
   const updateAction = (id: number, actionId: number, patch: ActionPatch) => {
-    mapButton(id, (item) => ({
-      ...item,
-      actions: item.actions.map((action) =>
-        action.id === actionId ? { ...action, ...patch } : action,
-      ),
-    }));
+    mapButton(id, (item) => ({ ...item, actions: patchAction(item.actions, actionId, patch) }));
   };
 
   const removeAction = (id: number, actionId: number) => {
-    mapButton(id, (item) => ({
-      ...item,
-      actions: item.actions.filter((action) => action.id !== actionId),
-    }));
+    mapButton(id, (item) => ({ ...item, actions: dropAction(item.actions, actionId) }));
   };
 
   const moveTo = (dragId: number, targetId: number, placement: DropPlacement) => {

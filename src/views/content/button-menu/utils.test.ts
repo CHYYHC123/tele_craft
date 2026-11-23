@@ -1,13 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
+import { createMessageConfig } from '@/utils/message-config';
 import type { MenuRows } from '@/views/content/button-menu/types';
-import {
-  createMenuButton,
-  moveButton,
-  moveButtonToNewRow,
-} from '@/views/content/button-menu/utils';
+import { moveButton, moveButtonToNewRow } from '@/views/content/button-menu/utils';
 
-const b = (id: number) => createMenuButton(id);
+const b = (id: number) => createMessageConfig(id);
 const ids = (rows: MenuRows) => rows.map((row) => row.map((item) => item.id));
 
 describe('moveButton', () => {

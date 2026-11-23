@@ -1,17 +1,5 @@
-import { DEFAULT_MENU_MESSAGE, MAX_BUTTONS_PER_ROW } from '@/views/content/button-menu/constants';
-import type { DropPlacement, MenuButtonItem, MenuRows } from '@/views/content/button-menu/types';
-
-export const createMenuButton = (id: number): MenuButtonItem => ({
-  id,
-  name: '',
-  menuDescription: '',
-  messageType: 'graphic',
-  image: null,
-  description: DEFAULT_MENU_MESSAGE,
-  link: '',
-  actionEnabled: false,
-  actions: [{ id: 1, name: '', link: '' }],
-});
+import { MAX_BUTTONS_PER_ROW } from '@/views/content/button-menu/constants';
+import type { DropPlacement, MenuRows } from '@/views/content/button-menu/types';
 
 const withoutEmptyRows = (rows: MenuRows): MenuRows => rows.filter((row) => row.length > 0);
 

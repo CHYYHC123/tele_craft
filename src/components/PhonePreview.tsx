@@ -8,6 +8,8 @@ interface PhonePreviewProps {
   contentBottom?: number;
   /** 放在聊天区底部的内容，如消息气泡 */
   children?: ReactNode;
+  /** 铺满整个手机的装饰层（不拦截点击），用于相对手机整体定位的高亮框等 */
+  overlay?: ReactNode;
 }
 
 const PhonePreview: FC<PhonePreviewProps> = ({
@@ -15,6 +17,7 @@ const PhonePreview: FC<PhonePreviewProps> = ({
   botName,
   contentBottom = 14,
   children,
+  overlay,
 }) => {
   return (
     <div className="relative aspect-[560/1024] w-64 shrink-0 overflow-hidden rounded-3xl bg-white shadow-sm">
@@ -31,6 +34,8 @@ const PhonePreview: FC<PhonePreviewProps> = ({
       <div className="absolute inset-x-[2%]" style={{ bottom: `${contentBottom}%` }}>
         {children}
       </div>
+
+      {overlay ? <div className="pointer-events-none absolute inset-0">{overlay}</div> : null}
     </div>
   );
 };

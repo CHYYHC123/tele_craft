@@ -58,7 +58,7 @@ describe('ButtonMenu', () => {
     expect(screen.getByRole('textbox', { name: 'Description' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('radio', { name: 'Link' }));
-    expect(screen.getByRole('textbox', { name: 'Link URL' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'External link' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Description' })).not.toBeInTheDocument();
   });
 
