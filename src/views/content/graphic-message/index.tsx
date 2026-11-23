@@ -5,12 +5,13 @@ import graBg from '@/assets/image/content/gra_bg.png';
 import Button from '@/components/Button';
 import MessageBubble from '@/components/MessageBubble';
 import PhonePreview from '@/components/PhonePreview';
-import ActionButtonsField from '@/views/content/graphic-message/components/ActionButtonsField';
-import DescriptionEditor from '@/views/content/graphic-message/components/DescriptionEditor';
-import FormRow from '@/views/content/graphic-message/components/FormRow';
-import ImageUpload from '@/views/content/graphic-message/components/ImageUpload';
-import MessageTypeField from '@/views/content/graphic-message/components/MessageTypeField';
-import Switch from '@/views/content/graphic-message/components/Switch';
+import ActionButtonsField from '@/components/ActionButtonsField';
+import DescriptionEditor from '@/components/DescriptionEditor';
+import FormRow from '@/components/FormRow';
+import ImageUpload from '@/components/ImageUpload';
+import MessageTypeField from '@/components/MessageTypeField';
+import Switch from '@/components/Switch';
+import type { ActionButtonItem, MessageType } from '@/types/message';
 import {
   BOT_NAME,
   DEFAULT_GRAPHIC_MESSAGE,
@@ -18,7 +19,6 @@ import {
   PREVIEW_TIME,
 } from '@/views/content/graphic-message/constants';
 import { useImagePreview } from '@/views/content/graphic-message/hooks/useImagePreview';
-import type { ActionButtonItem, MessageType } from '@/views/content/graphic-message/types';
 
 const createActionButton = (id: number): ActionButtonItem => ({ id, name: '', link: '' });
 

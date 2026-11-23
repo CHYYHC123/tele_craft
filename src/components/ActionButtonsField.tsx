@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
-import type { ActionButtonItem } from '@/views/content/graphic-message/types';
+import type { ActionButtonItem } from '@/types/message';
 
 const INPUT_CLASS =
   'mt-1.5 h-10 w-full rounded-lg border border-[#e4e7ee] px-3 text-sm outline-none focus:border-[#2F6EFF]';

@@ -1,4 +1,4 @@
-export type MessageType = 'graphic' | 'text';
+export type MessageType = 'graphic' | 'text' | 'link';
 
 export interface ActionButtonItem {
   id: number;

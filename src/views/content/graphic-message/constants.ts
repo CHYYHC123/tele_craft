@@ -7,5 +7,3 @@ export const DEFAULT_GRAPHIC_MESSAGE =
   "Hi, welcome to our support bot. Please type your questions here, we'll reply as soon as we can!";
 
 export const PREVIEW_TIME = '11:40';
-
-export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg'];

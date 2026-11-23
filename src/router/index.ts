@@ -9,6 +9,7 @@ const WelcomeMessage = lazy(() => import('@/views/content/welcome-message'));
 const GraphicMessage = lazy(() => import('@/views/content/graphic-message'));
 const AutomaticReply = lazy(() => import('@/views/content/automatic-reply'));
 const AddMenu = lazy(() => import('@/views/content/add-menu'));
+const ButtonMenu = lazy(() => import('@/views/content/button-menu'));
 const UserChat = lazy(() => import('@/views/user-chat'));
 const Login = lazy(() => import('@/views/login'));
 const NotFound = lazy(() => import('@/views/not-found'));
@@ -46,6 +47,10 @@ const router = createBrowserRouter([
       {
         path: 'content/add-menu',
         element: createElement(AddMenu),
+      },
+      {
+        path: 'content/button-menu',
+        element: createElement(ButtonMenu),
       },
       {
         path: 'user-chat',

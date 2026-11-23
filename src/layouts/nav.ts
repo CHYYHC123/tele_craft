@@ -31,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: 'Graphic message', to: '/content/graphic-message' },
       { label: 'Automatic reply', to: '/content/automatic-reply' },
       { label: 'Add menu', to: '/content/add-menu' },
+      { label: 'Button menu', to: '/content/button-menu' },
     ],
   },
   { label: 'User chat', to: '/user-chat', icon: MessageCircle },

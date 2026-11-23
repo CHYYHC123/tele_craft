@@ -3,7 +3,8 @@ import { UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { cn } from '@/utils';
-import { ACCEPTED_IMAGE_TYPES } from '@/views/content/graphic-message/constants';
+
+const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg'];
 
 interface ImageUploadProps {
   /** 已选图片的文件名 */
