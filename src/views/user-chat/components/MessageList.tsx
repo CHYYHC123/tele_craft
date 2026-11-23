@@ -2,7 +2,7 @@ import { useEffect, useRef, type FC } from 'react';
 import { CheckCheck } from 'lucide-react';
 
 import { cn } from '@/utils';
-import BotAvatar from '@/views/user-chat/components/BotAvatar';
+import BotAvatar from '@/components/BotAvatar';
 import ChatAvatar from '@/views/user-chat/components/ChatAvatar';
 import { BOT_NAME } from '@/views/user-chat/constants';
 import type { Chat } from '@/views/user-chat/types';

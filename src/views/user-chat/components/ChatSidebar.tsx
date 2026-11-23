@@ -1,9 +1,9 @@
 import { useState, type FC } from 'react';
 import { Check, Menu, Search } from 'lucide-react';
 
-import BotAvatar from '@/views/user-chat/components/BotAvatar';
+import BotAvatar from '@/components/BotAvatar';
 import ChatListItem from '@/views/user-chat/components/ChatListItem';
-import DropdownMenu from '@/views/user-chat/components/DropdownMenu';
+import DropdownMenu from '@/components/DropdownMenu';
 import EmptyChatList from '@/views/user-chat/components/EmptyChatList';
 import { FOLDER_OPTIONS } from '@/views/user-chat/constants';
 import type { Chat, ChatFolder } from '@/views/user-chat/types';

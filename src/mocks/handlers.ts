@@ -1,5 +1,6 @@
 import { http } from 'msw';
 import { apiFail, apiOk } from '@/mocks/response';
+import type { Bot } from '@/types/bot';
 import type {
   AuthResult,
   LoginSession,
@@ -36,6 +37,20 @@ const MOCK_AUTH: AuthResult = {
 function randomToken(length = 22): string {
   return Array.from({ length }, () => TOKEN_CHARS[Math.floor(Math.random() * 64)]).join('');
 }
+
+/** 已绑定的 Bot（内存态，默认空，模拟新用户） */
+let mockBots: Bot[] = [];
+
+/** 测试用：重置/预置 mock Bot 列表 */
+export function resetMockBots(bots: Bot[] = []) {
+  mockBots = bots;
+}
+
+/** 约定：这两个 token 分别触发「token 无效」「已被其他账号绑定」 */
+export const MOCK_INVALID_BOT_TOKEN = '1:invalid';
+export const MOCK_TAKEN_BOT_TOKEN = '2:taken';
+
+const BOT_TOKEN_FORMAT = /^\d+:[A-Za-z0-9_-]+$/;
 
 /** 扫码会话：记录 clientSecret 与被轮询次数，用来模拟 pending → scanned → confirmed */
 const sessions = new Map<string, { clientSecret: string; polls: number; exchanged: boolean }>();
@@ -121,5 +136,43 @@ export const handlers = [
       ]);
     }
     return apiOk(MOCK_AUTH);
+  }),
+
+  // 查询用户 Bot 列表
+  http.get(`${API_BASE}/bots`, ({ request }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    return apiOk(mockBots);
+  }),
+
+  // 添加用户 Bot
+  http.post(`${API_BASE}/bots`, async ({ request }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const body = (await request.json().catch(() => null)) as { token?: string } | null;
+    const token = body?.token ?? '';
+    if (!BOT_TOKEN_FORMAT.test(token)) {
+      return apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+        { path: ['token'], message: 'Invalid token format' },
+      ]);
+    }
+    if (token === MOCK_INVALID_BOT_TOKEN) {
+      return apiFail('1009', 'Bot token 无效', 400);
+    }
+    if (token === MOCK_TAKEN_BOT_TOKEN) {
+      return apiFail('1010', '这个 Bot 已被其他账号绑定', 409);
+    }
+    const telegramBotId = token.split(':')[0];
+    const existing = mockBots.find((bot) => bot.telegramBotId === telegramBotId);
+    const bot: Bot = existing ?? {
+      id: crypto.randomUUID(),
+      telegramBotId,
+      username: `bot_${telegramBotId}`,
+      displayName: `Bit Store Card ${telegramBotId}`,
+    };
+    if (!existing) mockBots = [...mockBots, bot];
+    return apiOk(bot);
   }),
 ];

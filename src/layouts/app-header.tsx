@@ -3,12 +3,21 @@ import { CircleHelp, Plus } from 'lucide-react';
 
 import logo from '@/assets/image/login/logo.png';
 import Button from '@/components/Button';
+import { useBotsQuery } from '@/hooks/useBots';
+import BotSwitcher from '@/layouts/bot-switcher';
+import { useBotStore } from '@/store/bot';
+import { useUiStore } from '@/store/ui';
 import { useUserStore } from '@/store/user';
+import { resolveCurrentBot } from '@/utils/bot';
 import { getUserDisplayName } from '@/utils/user';
 
 const AppHeader: FC = () => {
   const user = useUserStore((state) => state.user);
   const displayName = getUserDisplayName(user);
+  const openAddBot = useUiStore((state) => state.openAddBot);
+  const selectedBotId = useBotStore((state) => state.selectedBotId);
+  const { data: bots = [] } = useBotsQuery();
+  const currentBot = resolveCurrentBot(bots, selectedBotId);
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#e4e7ee] bg-[#f5f6f8] px-6">
@@ -20,9 +29,17 @@ const AppHeader: FC = () => {
           </span>
         </div>
 
-        <Button className="rounded-xl" icon={<Plus className="size-4" strokeWidth={2.4} />}>
-          Add a bot
-        </Button>
+        {currentBot ? (
+          <BotSwitcher bots={bots} current={currentBot} />
+        ) : (
+          <Button
+            className="rounded-xl"
+            icon={<Plus className="size-4" strokeWidth={2.4} />}
+            onClick={openAddBot}
+          >
+            Add a bot
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

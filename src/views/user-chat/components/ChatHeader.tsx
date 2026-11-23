@@ -3,7 +3,7 @@ import { Bell, BellOff, Check, RotateCcw, UserRoundCog } from 'lucide-react';
 
 import { cn } from '@/utils';
 import ChatAvatar from '@/views/user-chat/components/ChatAvatar';
-import DropdownMenu from '@/views/user-chat/components/DropdownMenu';
+import DropdownMenu from '@/components/DropdownMenu';
 import { BOT_USERNAME, MUTE_OPTIONS } from '@/views/user-chat/constants';
 import type { Chat } from '@/views/user-chat/types';
 

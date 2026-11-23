@@ -2,6 +2,7 @@ import { Suspense, type FC } from 'react';
 import { Outlet } from 'react-router';
 
 import PageLoading from '@/components/PageLoading';
+import AddBotDialog from '@/layouts/add-bot-dialog';
 import AppHeader from '@/layouts/app-header';
 import AppSidebar from '@/layouts/app-sidebar';
 
@@ -17,6 +18,7 @@ const Layout: FC = () => {
           </Suspense>
         </main>
       </div>
+      <AddBotDialog />
     </div>
   );
 };
