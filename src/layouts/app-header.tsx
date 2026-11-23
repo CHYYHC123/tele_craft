@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { CircleHelp, Plus } from 'lucide-react';
 
 import logo from '@/assets/image/login/logo.png';
+import Button from '@/components/Button';
 import { useUserStore } from '@/store/user';
 
 const AppHeader: FC = () => {
@@ -9,20 +10,18 @@ const AppHeader: FC = () => {
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#e4e7ee] bg-[#f5f6f8] px-6">
-      <div className="flex items-center gap-2.5">
-        <img src={logo} alt="AEON" className="size-8" />
-        <span className="text-[15px] font-semibold tracking-tight text-[#191b26]">
-          AEON Bot Builder
-        </span>
-      </div>
+      <div className="flex items-center gap-26">
+        <div className="flex items-center gap-2.5">
+          <img src={logo} alt="AEON" className="size-8" />
+          <span className="text-[15px] font-semibold tracking-tight text-[#191b26]">
+            TELE CRAFT
+          </span>
+        </div>
 
-      <button
-        type="button"
-        className="absolute left-1/2 flex h-10 -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#2F6EFF] px-4 text-sm font-medium text-white"
-      >
-        <Plus className="size-4" strokeWidth={2.4} />
-        Add a bot
-      </button>
+        <Button className="rounded-xl" icon={<Plus className="size-4" strokeWidth={2.4} />}>
+          Add a bot
+        </Button>
+      </div>
 
       <div className="flex items-center gap-3">
         <button

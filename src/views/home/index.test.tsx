@@ -24,6 +24,13 @@ function renderHome() {
 }
 
 describe('Home', () => {
+  it('没有用户数据时展示空状态', () => {
+    renderHome();
+
+    expect(screen.getByRole('heading', { name: 'User information' })).toBeInTheDocument();
+    expect(screen.getByText('No data yet')).toBeInTheDocument();
+  });
+
   it('侧栏能从 Home 进入 User chat', async () => {
     renderHome();
 
