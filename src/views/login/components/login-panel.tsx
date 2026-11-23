@@ -17,14 +17,16 @@ function getStatusText(status: QrLoginStatus, scannedBy: TelegramProfile | null)
       return 'Could not generate the QR code';
     case 'scanned': {
       const name = getUserDisplayName(scannedBy);
-      return name ? `Scanned by ${name}. Confirm in Telegram` : 'Scanned. Confirm in Telegram';
+      return name
+        ? `Scanned by ${name}. Confirm the login in the bot chat`
+        : 'Scanned. Confirm the login in the bot chat';
     }
     case 'confirmed':
       return 'Logging in…';
     case 'expired':
       return 'QR code expired, refreshing…';
     default:
-      return 'Open Telegram and scan the QR code';
+      return 'Point your phone’s camera at the QR code';
   }
 }
 
@@ -63,9 +65,12 @@ const LoginPanel: FC = () => {
           Log in via telegram
         </button>
 
-        <h2 className="mt-8 text-sm font-semibold text-neutral-900">Can’t open Telegram?</h2>
+        <h2 className="mt-8 text-sm font-semibold text-neutral-900">
+          Can’t open Telegram on this device?
+        </h2>
         <p className="mt-1 text-sm leading-relaxed text-neutral-500">
-          Scan the QR code from a device with the Telegram client installed.
+          Scan the QR code with your phone’s camera app (not Telegram’s built-in scanner), then
+          confirm the login in the Telegram bot chat.
         </p>
 
         <div className="mt-4 rounded-2xl bg-[#F4F5F7] px-6 py-8">
