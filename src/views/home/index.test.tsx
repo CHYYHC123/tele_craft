@@ -2,13 +2,21 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
+import Layout from '@/layouts';
 import Home from '@/views/home';
+import UserChat from '@/views/user-chat';
 
 function renderHome() {
   const router = createMemoryRouter(
     [
-      { path: '/', element: <Home /> },
-      { path: '/login', element: <h1>Login</h1> },
+      {
+        path: '/',
+        element: <Layout />,
+        children: [
+          { index: true, element: <Home /> },
+          { path: 'user-chat', element: <UserChat /> },
+        ],
+      },
     ],
     { initialEntries: ['/'] },
   );
@@ -16,11 +24,14 @@ function renderHome() {
 }
 
 describe('Home', () => {
-  it('点击按钮进入登录页', async () => {
+  it('侧栏能从 Home 进入 User chat', async () => {
     renderHome();
 
-    await userEvent.click(screen.getByRole('button', { name: '去登录' }));
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
 
-    expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: 'User chat' }));
+
+    expect(screen.getByRole('link', { name: 'User chat' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current', 'page');
   });
 });
