@@ -1,20 +1,50 @@
 import type { FC } from 'react';
-// import { toast } from 'sonner';
+import { QRCodeSVG } from 'qrcode.react';
+import { RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 import tgIcon from '@/assets/image/login/tg.svg';
+import type { TelegramProfile } from '@/types/auth';
+import { getUserDisplayName } from '@/utils/user';
 import { useTelegramLogin } from '@/views/login/hooks/useTelegramLogin';
+import { useTelegramQrLogin, type QrLoginStatus } from '@/views/login/hooks/useTelegramQrLogin';
+
+function getStatusText(status: QrLoginStatus, scannedBy: TelegramProfile | null): string {
+  switch (status) {
+    case 'loading':
+      return 'Generating QR code…';
+    case 'error':
+      return 'Could not generate the QR code';
+    case 'scanned': {
+      const name = getUserDisplayName(scannedBy);
+      return name ? `Scanned by ${name}. Confirm in Telegram` : 'Scanned. Confirm in Telegram';
+    }
+    case 'confirmed':
+      return 'Logging in…';
+    case 'expired':
+      return 'QR code expired, refreshing…';
+    default:
+      return 'Open Telegram and scan the QR code';
+  }
+}
 
 const LoginPanel: FC = () => {
   const { login, ready, pending } = useTelegramLogin();
+  const { deepLink, status, scannedBy, refresh } = useTelegramQrLogin();
 
-  // const copyLink = async () => {
-  //   try {
-  //     await navigator.clipboard.writeText(LOGIN_LINK);
-  //     toast.success('Link copied');
-  //   } catch {
-  //     toast.error('Could not copy the link');
-  //   }
-  // };
+  const copyLink = async () => {
+    if (!deepLink) return;
+    try {
+      await navigator.clipboard.writeText(deepLink);
+      toast.success('Link copied');
+    } catch {
+      toast.error('Could not copy the link');
+    }
+  };
+
+  const showQr = Boolean(deepLink);
+  const needsRefresh = status === 'error';
+  const dimmed = status !== 'pending' && status !== 'scanned';
 
   return (
     <section className="flex min-h-screen w-full min-w-0 flex-1 items-center justify-center bg-white px-6 py-16">
@@ -39,24 +69,41 @@ const LoginPanel: FC = () => {
         </p>
 
         <div className="mt-4 rounded-2xl bg-[#F4F5F7] px-6 py-8">
-          <div className="mx-auto w-fit rounded-2xl bg-white p-4 shadow-sm">
-            {/* <svg
-              viewBox={`0 0 ${QR_MODULES} ${QR_MODULES}`}
-              className="size-44 text-neutral-900"
-              role="img"
-              aria-label="Telegram login QR code"
-            >
-              <path d={QR_PATH} fill="currentColor" />
-            </svg> */}
+          <div className="relative mx-auto size-52 rounded-2xl bg-white p-4 shadow-sm">
+            {showQr && deepLink ? (
+              <QRCodeSVG
+                value={deepLink}
+                className={`size-full text-neutral-900 transition-opacity ${dimmed ? 'opacity-20' : ''}`}
+                role="img"
+                aria-label="Telegram login QR code"
+              />
+            ) : (
+              <div className="size-full animate-pulse rounded-lg bg-neutral-100" />
+            )}
+            {needsRefresh && (
+              <button
+                type="button"
+                onClick={refresh}
+                className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl bg-white/80 text-sm text-neutral-700"
+              >
+                <RefreshCw className="size-5" />
+                Refresh
+              </button>
+            )}
           </div>
 
-          {/* <button
+          <p role="status" className="mt-4 text-center text-sm text-neutral-500">
+            {getStatusText(status, scannedBy)}
+          </p>
+
+          <button
             type="button"
             onClick={copyLink}
-            className="mx-auto mt-6 flex items-center gap-1.5 text-sm text-neutral-500 cursor-pointer"
+            disabled={!deepLink}
+            className="mx-auto mt-3 flex cursor-pointer items-center gap-1.5 text-sm text-neutral-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Copy link to clipboard
-          </button> */}
+          </button>
         </div>
       </div>
     </section>

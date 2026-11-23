@@ -12,16 +12,6 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        // 如果后端接口本身没有 /api 前缀，请取消下面这行的注释：
-        // rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
-  },
   test: {
     globals: true,
     environment: 'jsdom',

@@ -2,14 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 
+import { getSdkNonce, loginWithSdk } from '@/api/auth';
 import { useUserStore } from '@/store/user';
-import type {
-  TelegramLoginApi,
-  TelegramLoginOptions,
-  TelegramLoginResult,
-  TelegramUser,
-} from '@/types/telegram';
-import type { User } from '@/types/user';
+import type { TelegramLoginApi, TelegramLoginOptions, TelegramLoginResult } from '@/types/telegram';
 
 const TELEGRAM_LOGIN_SDK_SRC = 'https://oauth.telegram.org/js/telegram-login.js';
 const TELEGRAM_LOGIN_SDK_ID = 'telegram-login-sdk';
@@ -86,28 +81,14 @@ function loadTelegramLoginSdk(): Promise<void> {
   return sdkPromise;
 }
 
-function readClientId(): number | null {
-  const raw = (import.meta.env.VITE_TELEGRAM_CLIENT_ID ?? '').trim();
-  const clientId = Number(raw);
-  if (!raw || !Number.isSafeInteger(clientId) || clientId <= 0) return null;
-  return clientId;
-}
-
-function toUser(telegramUser: TelegramUser): User | null {
-  const id = telegramUser.id ?? telegramUser.sub;
-  if (id === undefined || id === '') return null;
-  const name = telegramUser.name?.trim() || telegramUser.preferred_username || 'Telegram user';
-  return { id: String(id), name, avatar: telegramUser.picture };
-}
-
 /**
- * 用官方 Telegram Login SDK 打开登录弹窗。
- * id_token 先写入本地登录态；上线前必须由服务端验签后再信任。
+ * 弹窗登录：先向后端领取一次性 nonce 与 Client ID，用官方 Telegram Login SDK 弹窗授权，
+ * 再把回调里的 id_token 交给后端验证，换取 accessToken。
+ * id_token 不是登录凭证；nonce 只能用一次，失败或取消后下次点击会重新领取。
  */
 export const useTelegramLogin = () => {
   const navigate = useNavigate();
-  const setUser = useUserStore((s) => s.setUser);
-  const setToken = useUserStore((s) => s.setToken);
+  const setAuth = useUserStore((s) => s.setAuth);
   const [ready, setReady] = useState(() => Boolean(window.Telegram?.Login));
   const [pending, setPending] = useState(false);
 
@@ -125,47 +106,66 @@ export const useTelegramLogin = () => {
     };
   }, []);
 
-  const login = () => {
-    const clientId = readClientId();
-    if (!clientId) {
-      toast.error('Set VITE_TELEGRAM_CLIENT_ID before logging in with Telegram');
-      return;
-    }
-
+  const login = async () => {
     const api = window.Telegram?.Login;
     if (!api) {
       toast.error('Telegram login is still loading');
       return;
     }
 
-    const nonce = crypto.randomUUID();
     setPending(true);
+
+    let nonce: string;
+    let clientId: number;
+    try {
+      const sdkNonce = await getSdkNonce();
+      nonce = sdkNonce.nonce;
+      clientId = Number(sdkNonce.clientId);
+    } catch {
+      // 请求错误已由请求层统一提示
+      setPending(false);
+      return;
+    }
+    if (!Number.isSafeInteger(clientId) || clientId <= 0) {
+      setPending(false);
+      toast.error('Telegram login is not configured');
+      return;
+    }
+
     try {
       openTelegramAuth(
         api,
         { client_id: clientId, scope: ['profile'], lang: 'en', nonce },
         (result: TelegramLoginResult) => {
-          setPending(false);
-          if (result.error) {
-            if (result.error !== 'popup_closed') toast.error('Telegram login failed');
-            return;
-          }
-
-          const user = result.user && result.user.nonce === nonce ? toUser(result.user) : null;
-          if (!result.id_token || !user) {
-            toast.error('Telegram login failed');
-            return;
-          }
-
-          setToken(result.id_token);
-          setUser(user);
-          toast.success('Logged in');
-          navigate('/');
+          void finishLogin(result, nonce);
         },
       );
     } catch {
       setPending(false);
       toast.error('Telegram login failed');
+    }
+  };
+
+  const finishLogin = async (result: TelegramLoginResult, nonce: string) => {
+    try {
+      if (result.error) {
+        if (result.error !== 'popup_closed') toast.error('Telegram login failed');
+        return;
+      }
+      // 前端比对 nonce 只是体验上的检查，真正的校验在后端
+      if (!result.id_token || (result.user?.nonce && result.user.nonce !== nonce)) {
+        toast.error('Telegram login failed');
+        return;
+      }
+
+      const auth = await loginWithSdk(result.id_token);
+      setAuth(auth);
+      toast.success('Logged in');
+      navigate('/', { replace: true });
+    } catch {
+      // 请求错误已由请求层统一提示
+    } finally {
+      setPending(false);
     }
   };
 

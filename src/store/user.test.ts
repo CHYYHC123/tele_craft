@@ -1,32 +1,61 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { useUserStore } from '@/store/user';
-import type { User } from '@/types/user';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { selectIsLoggedIn, useUserStore } from '@/store/user';
+import type { AuthResult } from '@/types/auth';
 
-const mockUser: User = { id: '1', name: 'Ada' };
+const auth: AuthResult = {
+  accessToken: 'abc',
+  expiresIn: 60,
+  user: { id: 'u1', telegramId: '123', firstName: 'Ada', lastName: 'L', username: 'ada' },
+};
 
 describe('useUserStore', () => {
   beforeEach(() => {
     useUserStore.getState().logout();
   });
 
-  it('初始状态为空', () => {
-    const { user, token } = useUserStore.getState();
-    expect(user).toBeNull();
-    expect(token).toBeNull();
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it('setUser / setToken 写入状态', () => {
-    useUserStore.getState().setUser(mockUser);
-    useUserStore.getState().setToken('abc');
-    expect(useUserStore.getState().user).toEqual(mockUser);
-    expect(useUserStore.getState().token).toBe('abc');
+  it('初始状态为空', () => {
+    const state = useUserStore.getState();
+    expect(state.user).toBeNull();
+    expect(state.token).toBeNull();
+    expect(selectIsLoggedIn(state)).toBe(false);
+  });
+
+  it('setAuth 写入 token、user 与过期时间', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    useUserStore.getState().setAuth(auth);
+
+    const state = useUserStore.getState();
+    expect(state.token).toBe('abc');
+    expect(state.user).toEqual(auth.user);
+    expect(state.expiresAt).toBe(1_000_000 + 60_000);
+    expect(selectIsLoggedIn(state)).toBe(true);
+  });
+
+  it('超过 expiresIn 后不再视为已登录', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    useUserStore.getState().setAuth(auth);
+    vi.setSystemTime(61_000);
+    expect(selectIsLoggedIn(useUserStore.getState())).toBe(false);
   });
 
   it('logout 清空登录态', () => {
-    useUserStore.getState().setUser(mockUser);
-    useUserStore.getState().setToken('abc');
+    useUserStore.getState().setAuth(auth);
     useUserStore.getState().logout();
-    expect(useUserStore.getState().user).toBeNull();
-    expect(useUserStore.getState().token).toBeNull();
+    const state = useUserStore.getState();
+    expect(state.user).toBeNull();
+    expect(state.token).toBeNull();
+    expect(state.expiresAt).toBeNull();
+  });
+
+  it('登录态会持久化到 localStorage', () => {
+    useUserStore.getState().setAuth(auth);
+    const saved = JSON.parse(localStorage.getItem('telecraft-auth') ?? '{}');
+    expect(saved.state.token).toBe('abc');
   });
 });

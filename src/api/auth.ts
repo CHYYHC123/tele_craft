@@ -1,5 +1,20 @@
 import { http } from '@/api/request';
-import type { LoginParams, LoginResult } from '@/types/auth';
+import type { AuthResult, LoginSession, LoginSessionState, SdkNonce } from '@/types/auth';
 
-/** 登录示例接口：入参 → Promise 数据 */
-export const login = (data: LoginParams) => http.post<LoginResult>('/login', data);
+/** 创建扫码登录会话（没有请求体） */
+export const createLoginSession = () => http.post<LoginSession>('/auth/telegram/sessions');
+
+/** 查询登录会话进度；会话不存在或已过期时 HTTP 仍是 200，status 为 expired。轮询请求不弹全局错误 */
+export const getLoginSession = (token: string) =>
+  http.get<LoginSessionState>(`/auth/telegram/sessions/${token}`, { silent: true });
+
+/** 扫码确认后，用创建会话时的 clientSecret 换取 accessToken（同一会话只能兑换一次） */
+export const exchangeLoginSession = (token: string, clientSecret: string) =>
+  http.post<AuthResult>(`/auth/telegram/sessions/${token}/exchange`, { clientSecret });
+
+/** 弹窗登录：领取一次性 nonce 与 Client ID */
+export const getSdkNonce = () => http.post<SdkNonce>('/auth/telegram/sdk/nonce');
+
+/** 弹窗登录：把 Telegram 回调里的 id_token 交给后端验证，换取 accessToken */
+export const loginWithSdk = (idToken: string) =>
+  http.post<AuthResult>('/auth/telegram/sdk/login', { idToken });
