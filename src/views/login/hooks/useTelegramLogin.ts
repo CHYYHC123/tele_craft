@@ -132,6 +132,8 @@ export const useTelegramLogin = () => {
       return;
     }
 
+    console.log('[TG] sdk params', { clientId, nonce, origin: location.origin });
+
     try {
       openTelegramAuth(
         api,
@@ -140,29 +142,40 @@ export const useTelegramLogin = () => {
           void finishLogin(result, nonce);
         },
       );
-    } catch {
+    } catch (e) {
+      console.error('[TG] openTelegramAuth threw', e);
       setPending(false);
       toast.error('Telegram login failed');
     }
   };
 
   const finishLogin = async (result: TelegramLoginResult, nonce: string) => {
+    console.log('[TG] callback result', result);
+    console.log('[TG] nonce compare', { local: nonce, fromTelegram: result.user?.nonce });
     try {
       if (result.error) {
+        console.warn('[TG] result.error =', result.error);
         if (result.error !== 'popup_closed') toast.error('Telegram login failed');
         return;
       }
+      if (!result.id_token) {
+        console.warn('[TG] missing id_token', result);
+        toast.error('Telegram login failed');
+        return;
+      }
       // 前端比对 nonce 只是体验上的检查，真正的校验在后端
-      if (!result.id_token || (result.user?.nonce && result.user.nonce !== nonce)) {
+      if (result.user?.nonce && result.user.nonce !== nonce) {
+        console.warn('[TG] nonce mismatch', { local: nonce, remote: result.user.nonce });
         toast.error('Telegram login failed');
         return;
       }
 
       const auth = await loginWithSdk(result.id_token);
       setAuth(auth);
-      toast.success('Logged in');
+      // toast.success('Logged in');
       navigate('/', { replace: true });
-    } catch {
+    } catch (e) {
+      console.error('[TG] loginWithSdk failed', e);
       // 请求错误已由请求层统一提示
     } finally {
       setPending(false);
