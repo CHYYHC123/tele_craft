@@ -33,8 +33,9 @@ function openTelegramAuth(
 ) {
   const nativeOpen = window.open;
   window.open = (url, target, features) => {
-    const next = typeof url === 'string' ? appendTelegramOrigin(url) : url;
-    return nativeOpen.call(window, next, target, features);
+    // 临时验证：不再补 origin，使用官方 SDK 原始地址（OIDC 流程）。验证完成后据结果决定删除或恢复。
+    console.log('[TG] window.open url', url);
+    return nativeOpen.call(window, url, target, features);
   };
   try {
     auth.auth(options, callback);
@@ -146,6 +147,7 @@ export const useTelegramLogin = () => {
         }
       }
       console.log('[TG] raw message from oauth.telegram.org', raw);
+      console.log('[TG] raw message JSON', JSON.stringify(raw));
       console.log('[TG] raw.result typeof =', typeof (raw as { result?: unknown })?.result);
     };
     window.addEventListener('message', debugListener);
