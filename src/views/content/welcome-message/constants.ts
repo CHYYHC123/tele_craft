@@ -1,7 +1,8 @@
-export const BOT_NAME = 'Bit. Store Card';
+/** 服务端限制：description 最长 512 个字符 */
+export const WELCOME_MESSAGE_MAX_LENGTH = 512;
 
-// 按设计稿反推（默认文案 276 字符，设计稿显示剩余 135）；以真实业务限制为准
-export const WELCOME_MESSAGE_MAX_LENGTH = 411;
+/** 预览底部「开始」按钮文案 */
+export const WELCOME_START_LABEL = '开始';
 
-export const DEFAULT_WELCOME_MESSAGE =
-  'Hello, Welcome to BitStore.com! Your gateway to the future of cryptocurrency! We offer seamless access to local crypto cards directly on Telegram. Apply for a Bit.Store Card in just 3 minutes and start earning crypto back rewards. Plus, invite friends to amplify your rewards!';
+/** 预览气泡顶部的固定标题：只在前端展示，不参与编辑，也不提交给后端 */
+export const WELCOME_PREVIEW_TITLE = '机器人介绍：';

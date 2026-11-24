@@ -6,6 +6,8 @@ const LINK_PATTERN = /([A-Za-z0-9-]+\.(?:com|net|org|io|uz))(?=[\s!.,?]|$)/g;
 
 interface MessageBubbleProps {
   text: string;
+  /** 气泡顶部的固定标题，仅用于展示，不属于 text */
+  title?: string;
   /** 选中态：外层显示蓝色描边 */
   selected?: boolean;
   /** 气泡顶部的媒体内容（图片等） */
@@ -18,6 +20,7 @@ interface MessageBubbleProps {
 
 const MessageBubble: FC<MessageBubbleProps> = ({
   text,
+  title,
   selected = false,
   media,
   time,
@@ -35,10 +38,13 @@ const MessageBubble: FC<MessageBubbleProps> = ({
     >
       <div className="overflow-hidden rounded-xl bg-[#dff0fb] text-[#191b26]">
         {media}
-        {text || time ? (
+        {title || text || time ? (
           <div className="px-3 py-2.5">
+            {title ? (
+              <p className="mb-2 text-[11px] leading-snug font-medium wrap-break-word">{title}</p>
+            ) : null}
             {text ? (
-              <p className="text-[11px] leading-snug break-words whitespace-pre-wrap">
+              <p className="text-[11px] leading-snug wrap-break-word whitespace-pre-wrap">
                 {parts.map((part, index) =>
                   index % 2 === 1 ? (
                     <span key={index} className="text-[#1d8cf8] underline">

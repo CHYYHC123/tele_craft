@@ -5,8 +5,10 @@ import {
   exportBotSubscribers,
   getBotStats,
   getBotSubscribers,
+  getBotWelcome,
   getBots,
   updateBot,
+  updateBotWelcome,
 } from '@/api/bot';
 import { apiFail, apiOk } from '@/mocks/response';
 import { server } from '@/mocks/server';
@@ -137,6 +139,31 @@ describe('api/bot', () => {
     const blob = await exportBotSubscribers('b1');
     expect(authorization).toBe('Bearer jwt-bot');
     expect(await blob.text()).toBe('a,b\n1,2');
+  });
+
+  it('getBotWelcome：解包欢迎语，未配置时为 null', async () => {
+    login();
+    server.use(http.get(`${API}/bots/b1/welcome`, () => apiOk({ description: null })));
+    await expect(getBotWelcome('b1')).resolves.toEqual({ description: null });
+  });
+
+  it('updateBotWelcome：PUT 请求体是 { description }', async () => {
+    login();
+    let body: unknown;
+    server.use(
+      http.put(`${API}/bots/b1/welcome`, async ({ request }) => {
+        body = await request.json();
+        return apiOk({ description: 'Hi' });
+      }),
+    );
+    await expect(updateBotWelcome('b1', 'Hi')).resolves.toEqual({ description: 'Hi' });
+    expect(body).toEqual({ description: 'Hi' });
+  });
+
+  it('updateBotWelcome：Telegram 拒绝（1013）时 reject', async () => {
+    login();
+    server.use(http.put(`${API}/bots/b1/welcome`, () => apiFail('1013', 'Telegram 拒绝', 400)));
+    await expect(updateBotWelcome('b1', 'Hi')).rejects.toThrow();
   });
 
   it('getBotStats：bot 不存在（404）时 reject', async () => {

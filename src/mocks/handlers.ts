@@ -1,6 +1,6 @@
 import { http } from 'msw';
 import { apiFail, apiOk } from '@/mocks/response';
-import type { Bot, BotStats, Subscriber, SubscriberPage } from '@/types/bot';
+import type { Bot, BotStats, BotWelcome, Subscriber, SubscriberPage } from '@/types/bot';
 import type {
   AuthResult,
   LoginSession,
@@ -44,6 +44,15 @@ let mockBots: Bot[] = [];
 /** 测试用：重置/预置 mock Bot 列表 */
 export function resetMockBots(bots: Bot[] = []) {
   mockBots = bots;
+}
+
+/** 欢迎语（内存态，按 bot id 存；没有记录表示未配置） */
+const mockWelcomes = new Map<string, string>();
+
+/** 测试用：重置/预置 mock 欢迎语 */
+export function resetMockWelcomes(welcomes: Record<string, string> = {}) {
+  mockWelcomes.clear();
+  Object.entries(welcomes).forEach(([id, description]) => mockWelcomes.set(id, description));
 }
 
 /** 订阅者（内存态，默认空） */
@@ -225,6 +234,38 @@ export const handlers = [
     };
     mockBots = mockBots.map((item) => (item.id === bot.id ? updated : item));
     return apiOk(updated);
+  }),
+
+  // 读取欢迎语（未配置时 description 为 null）
+  http.get(`${API_BASE}/bots/:id/welcome`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const model: BotWelcome = { description: mockWelcomes.get(String(params.id)) ?? null };
+    return apiOk(model);
+  }),
+
+  // 保存并发布欢迎语
+  http.put(`${API_BASE}/bots/:id/welcome`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const body = (await request.json().catch(() => null)) as { description?: string } | null;
+    const description = body?.description;
+    if (typeof description !== 'string' || description.length > 512) {
+      return apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+        { path: ['description'], message: 'Invalid' },
+      ]);
+    }
+    mockWelcomes.set(String(params.id), description);
+    const model: BotWelcome = { description };
+    return apiOk(model);
   }),
 
   // 首页统计

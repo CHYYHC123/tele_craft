@@ -4,6 +4,7 @@ import deviceFrame from '@/assets/image/content/device.png';
 import tgPattern from '@/assets/image/content/tg_bg1.svg';
 import GradientBackground from '@/components/GradientBackground';
 import PhoneStatusBar from '@/components/PhoneStatusBar';
+import { cn } from '@/utils';
 import type { GradientCorners } from '@/utils/gradient';
 
 interface PhonePreviewBaseProps {
@@ -22,6 +23,7 @@ interface PhonePreviewImageProps extends PhonePreviewBaseProps {
   wallpaperColors?: never;
   wallpaperPattern?: never;
   keyboard?: never;
+  footer?: never;
 }
 
 /** canvas 模式：外壳用 device.png，状态栏 / 顶栏 / 输入栏由组件绘制，聊天壁纸使用 canvas 渐变 */
@@ -32,6 +34,8 @@ interface PhonePreviewCanvasProps extends PhonePreviewBaseProps {
   wallpaperPattern?: string;
   /** 输入栏下方的自定义键盘区，如机器人的回复按钮 */
   keyboard?: ReactNode;
+  /** 外部传入的底部内容（如「开始」按钮）：悬浮在壁纸底部，传入后替代默认输入栏与键盘 */
+  footer?: ReactNode;
   background?: never;
 }
 
@@ -42,12 +46,12 @@ const PhonePreview: FC<PhonePreviewProps> = (props) => {
 
   if (props.wallpaperColors) {
     return (
-      <div className="relative aspect-[870/1772] w-[327px] shrink-0">
+      <div className="relative aspect-870/1772 w-75 shrink-0">
         {/* 机身外壳图（屏幕区域为不透明黑色，内容放在它上面）；容器按图片原始比例 870:1772 缩放，勿拉伸 */}
         <img src={deviceFrame} alt="" className="absolute inset-0 size-full" />
 
-        {/* 屏幕：外壳 327×666，左右各缩进 18px、上下各缩进 16.5px → 屏幕 291×633 */}
-        <div className="absolute inset-x-[18px] inset-y-[16.5px] flex flex-col overflow-hidden rounded-[41px] bg-white">
+        {/* 屏幕：缩进与圆角均按外壳比例（左右 5.5%、上下 2.48%），改外层宽度时会自动等比缩放；300px 宽时屏幕约 267×581 */}
+        <div className="absolute inset-x-[5.5%] inset-y-[2.48%] flex flex-col overflow-hidden rounded-[14.1%/6.5%] bg-white">
           <PhoneStatusBar />
 
           {/* 聊天顶栏 */}
@@ -84,7 +88,13 @@ const PhonePreview: FC<PhonePreviewProps> = (props) => {
           </div>
 
           {/* 聊天区：canvas 渐变壁纸 */}
-          <div className="relative flex flex-1 flex-col justify-end overflow-hidden px-2 py-4">
+          <div
+            className={cn(
+              'relative flex flex-1 flex-col justify-end overflow-hidden px-2 pt-4',
+              // 有 footer 时底部要多留一截，给悬浮的 Home 横条（距底 6px、高 4px）让出空间
+              props.footer ? 'pb-2' : 'pb-4',
+            )}
+          >
             <div className="absolute inset-0">
               <GradientBackground
                 colors={props.wallpaperColors}
@@ -95,49 +105,65 @@ const PhonePreview: FC<PhonePreviewProps> = (props) => {
               Today
             </div>
             {children ? <div className="relative mb-3 w-full">{children}</div> : null}
+
+            {/* 外部传入的底部内容：悬浮在壁纸底部，与屏幕底边保持间距（宽度为聊天区去掉左右内边距） */}
+            {props.footer ? <div className="relative">{props.footer}</div> : null}
           </div>
 
-          {/* 输入栏 + 自定义键盘 */}
-          <div className="z-20 shrink-0 space-y-2 border-t border-slate-200/80 bg-white px-2.5 pt-2.5 pb-2">
-            <div className="flex items-center gap-2 text-slate-400" aria-hidden="true">
-              <span className="p-1">
-                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                  />
-                </svg>
-              </span>
-              <div className="flex flex-1 items-center justify-between rounded-full bg-slate-100 px-3.5 py-1.5 text-xs">
-                <span>Message</span>
-                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <rect height="12" rx="2" strokeWidth="2" width="18" x="3" y="6" />
-                  <circle cx="7" cy="10" fill="currentColor" r="1" />
-                  <circle cx="12" cy="10" fill="currentColor" r="1" />
-                  <circle cx="17" cy="10" fill="currentColor" r="1" />
-                  <circle cx="7" cy="14" fill="currentColor" r="1" />
-                  <circle cx="12" cy="14" fill="currentColor" r="1" />
-                  <circle cx="17" cy="14" fill="currentColor" r="1" />
-                </svg>
+          {/* 默认输入栏 + 自定义键盘；传入 footer 时不渲染 */}
+          {/* {props.footer ? null : (
+            <div className="z-20 shrink-0 space-y-2 border-t border-slate-200/80 bg-white px-2.5 pt-2.5 pb-2">
+              <div className="flex items-center gap-2 text-slate-400" aria-hidden="true">
+                <span className="p-1">
+                  <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                </span>
+                <div className="flex flex-1 items-center justify-between rounded-full bg-slate-100 px-3.5 py-1.5 text-xs">
+                  <span>Message</span>
+                  <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect height="12" rx="2" strokeWidth="2" width="18" x="3" y="6" />
+                    <circle cx="7" cy="10" fill="currentColor" r="1" />
+                    <circle cx="12" cy="10" fill="currentColor" r="1" />
+                    <circle cx="17" cy="10" fill="currentColor" r="1" />
+                    <circle cx="7" cy="14" fill="currentColor" r="1" />
+                    <circle cx="12" cy="14" fill="currentColor" r="1" />
+                    <circle cx="17" cy="14" fill="currentColor" r="1" />
+                  </svg>
+                </div>
+                <span className="p-1">
+                  <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                </span>
               </div>
-              <span className="p-1">
-                <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                  />
-                </svg>
-              </span>
+
+              {props.keyboard ? <div className="pt-1">{props.keyboard}</div> : null}
+
+              <div
+                className="mx-auto h-1 w-28 rounded-full bg-slate-300 pt-0.5"
+                aria-hidden="true"
+              />
             </div>
+          )} */}
 
-            {props.keyboard ? <div className="pt-1">{props.keyboard}</div> : null}
-
-            <div className="mx-auto h-1 w-28 rounded-full bg-slate-300 pt-0.5" aria-hidden="true" />
-          </div>
+          {/* 传入 footer 时没有输入栏，底部横条改为悬浮在屏幕最底部（模拟 iOS Home 指示条） */}
+          {props.footer ? (
+            <div
+              className="pointer-events-none absolute bottom-3 left-1/2 z-30 h-1 w-28 -translate-x-1/2 rounded-full bg-black/60"
+              aria-hidden="true"
+            />
+          ) : null}
         </div>
 
         {/* 灵动岛 + 摄像头：盖在状态栏之上，位置按外壳图比例定位 */}

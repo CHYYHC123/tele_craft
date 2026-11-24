@@ -3,6 +3,7 @@ import type {
   AddBotParams,
   Bot,
   BotStats,
+  BotWelcome,
   SubscriberPage,
   SubscribersParams,
   UpdateBotParams,
@@ -17,6 +18,13 @@ export const addBot = (data: AddBotParams) => http.post<Bot>('/bots', data);
 /** 修改 Bot 显示名和/或 About 简介（不是 @username），至少传一个字段 */
 export const updateBot = (id: string, data: UpdateBotParams) =>
   http.patch<Bot>(`/bots/${id}`, data);
+
+/** 读取 Bot 欢迎语；description 为 null 表示尚未配置 */
+export const getBotWelcome = (id: string) => http.get<BotWelcome>(`/bots/${id}/welcome`);
+
+/** 保存并发布欢迎语：先改 Telegram，成功后才写库；最长 512 个字符 */
+export const updateBotWelcome = (id: string, description: string) =>
+  http.put<BotWelcome>(`/bots/${id}/welcome`, { description });
 
 /** 首页四张统计卡的数字 */
 export const getBotStats = (id: string) => http.get<BotStats>(`/bots/${id}/stats`);

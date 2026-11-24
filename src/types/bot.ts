@@ -52,6 +52,11 @@ export interface SubscriberPage {
   total: number;
 }
 
+/** Bot 欢迎语（点 Start 前展示的 Description）；null 表示尚未配置 */
+export interface BotWelcome {
+  description: string | null;
+}
+
 /** 两个字段都可选，但至少传一个；只传发生变化的字段 */
 export interface UpdateBotParams {
   /** 显示名，1-64 个字符 */

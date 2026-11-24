@@ -10,7 +10,7 @@ const PhoneStatusBar: FC = () => {
   const time = useCurrentTime();
 
   return (
-    <div className="flex h-11 shrink-0 items-center justify-between bg-white px-7 select-none">
+    <div className="flex h-10 shrink-0 items-center justify-between bg-white px-7 select-none">
       <span className="text-[11px] font-semibold text-slate-900 tabular-nums">{time}</span>
       <div className="flex items-center gap-1" aria-hidden="true">
         <img src={signalIcon} alt="" className="h-2.5" />

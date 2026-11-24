@@ -6,8 +6,10 @@ import {
   exportBotSubscribers,
   getBotStats,
   getBotSubscribers,
+  getBotWelcome,
   getBots,
   updateBot,
+  updateBotWelcome,
 } from '@/api/bot';
 import { useBotStore } from '@/store/bot';
 import { useUiStore } from '@/store/ui';
@@ -17,6 +19,8 @@ import { downloadBlob } from '@/utils/download';
 
 export const BOTS_QUERY_KEY = ['bots'] as const;
 export const botStatsQueryKey = (botId: string | undefined) => ['bots', botId, 'stats'] as const;
+export const botWelcomeQueryKey = (botId: string | undefined) =>
+  ['bots', botId, 'welcome'] as const;
 export const botSubscribersQueryKey = (botId: string | undefined, params: SubscribersParams) =>
   ['bots', botId, 'subscribers', params] as const;
 
@@ -72,6 +76,27 @@ export const useUpdateBot = () => {
       await queryClient.invalidateQueries({ queryKey: BOTS_QUERY_KEY, exact: true });
       closeEditBot();
       toast.success('Saved successfully');
+    },
+  });
+};
+
+/** Bot 欢迎语；没有 Bot 时不请求 */
+export const useBotWelcomeQuery = (botId: string | undefined) =>
+  useQuery({
+    queryKey: botWelcomeQueryKey(botId),
+    queryFn: () => getBotWelcome(botId as string),
+    enabled: !!botId,
+  });
+
+/** 保存并发布欢迎语：成功后用服务端返回值更新缓存；错误由请求拦截器统一 toast */
+export const useUpdateBotWelcome = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (description: string) => updateBotWelcome(botId as string, description),
+    onSuccess: (welcome) => {
+      queryClient.setQueryData(botWelcomeQueryKey(botId), welcome);
+      toast.success('Welcome message published');
     },
   });
 };
