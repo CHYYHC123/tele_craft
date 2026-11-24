@@ -4,7 +4,10 @@ import { Toaster } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import router from '@/router';
 
-const queryClient = new QueryClient();
+// 请求失败不自动重试、切回窗口不自动重拉：错误已由请求拦截器 toast，避免失败后反复请求/反复弹提示
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+});
 
 function App() {
   return (

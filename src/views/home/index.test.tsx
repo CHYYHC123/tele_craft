@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
 import Layout from '@/layouts';
-import { resetMockBots } from '@/mocks/handlers';
+import { resetMockBots, resetMockSubscribers } from '@/mocks/handlers';
 import { useBotStore } from '@/store/bot';
 import { useUiStore } from '@/store/ui';
 import { useUserStore } from '@/store/user';
@@ -52,6 +52,7 @@ describe('Home', () => {
   afterEach(() => {
     useUserStore.getState().logout();
     useUiStore.getState().closeAddBot();
+    useUiStore.getState().closeEditBot();
     useBotStore.getState().setSelectedBotId(null);
   });
 
@@ -103,5 +104,80 @@ describe('Home', () => {
 
     expect(await screen.findByRole('button', { name: /Bit Store Card/ })).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('已有 Bot 时展示统计数字与订阅者行', async () => {
+    resetMockBots([SAVED_BOT]);
+    resetMockSubscribers([
+      {
+        telegramUserId: '6228099601',
+        firstName: 'Olivia',
+        lastName: 'Rhye',
+        username: 'OliviaRhye006',
+        phone: null,
+        firstSeenAt: '2026-11-15T08:18:20.000Z',
+        lastActiveAt: '2026-11-17T09:20:45.000Z',
+      },
+    ]);
+    renderHome();
+
+    expect(await screen.findByText('2,420')).toBeInTheDocument();
+    expect(screen.getByText('+20%')).toBeInTheDocument();
+    expect(screen.getByText('-8%')).toBeInTheDocument();
+    expect(await screen.findByText('Olivia Rhye')).toBeInTheDocument();
+    expect(screen.getByText('@OliviaRhye006')).toBeInTheDocument();
+    expect(screen.getByText('@shop_bot')).toBeInTheDocument();
+  });
+
+  it('点击铅笔弹出改名弹窗，保存后信息条与头部显示新名字', async () => {
+    resetMockBots([SAVED_BOT]);
+    renderHome();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit bot' }));
+    const dialog = screen.getByRole('dialog', { name: 'Modify bot information' });
+    const input = screen.getByLabelText('Name');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Fanstore.Uz');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('button', { name: /Fanstore\.Uz/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Fanstore.Uz' })).toBeInTheDocument();
+    expect(dialog).not.toBeInTheDocument();
+  });
+
+  it('改名弹窗里名字为空时不能保存，Cancel 关闭弹窗', async () => {
+    resetMockBots([SAVED_BOT]);
+    renderHome();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit bot' }));
+    await userEvent.clear(screen.getByLabelText('Name'));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('改 About：只提交变化的字段，并展示剩余字数', async () => {
+    resetMockBots([{ ...SAVED_BOT, shortDescription: 'Old about' }]);
+    renderHome();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit bot' }));
+    expect(screen.getByLabelText('About')).toHaveValue('Old about');
+    expect(screen.getByText('111 characters left')).toBeInTheDocument();
+    // 没有改动时不能保存
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    const about = screen.getByLabelText('About');
+    await userEvent.clear(about);
+    await userEvent.type(about, 'New about');
+    expect(screen.getByText('111 characters left')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // 名称未变，头部仍是原名
+    expect(screen.getByRole('button', { name: /Bit Store Card/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit bot' }));
+    expect(screen.getByLabelText('About')).toHaveValue('New about');
   });
 });

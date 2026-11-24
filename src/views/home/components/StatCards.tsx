@@ -1,5 +1,8 @@
 import type { FC } from 'react';
+import { TrendingDown, TrendingUp } from 'lucide-react';
 
+import { cn } from '@/utils';
+import { formatChange } from '@/utils/format';
 import type { StatItem } from '@/views/home/constants';
 
 const AVATAR_PLACEHOLDERS = [0, 1, 2, 3, 4];
@@ -23,7 +26,23 @@ const StatCards: FC<StatCardsProps> = ({ items }) => {
 
             {item.compare ? (
               <div className="text-right text-xs leading-5 text-[#5c6170]">
-                <p className="text-[#3bb59a]">--</p>
+                <p
+                  className={cn(
+                    'flex items-center justify-end gap-1',
+                    item.change == null
+                      ? 'text-[#5c6170]'
+                      : item.change < 0
+                        ? 'text-[#ef5b5b]'
+                        : 'text-[#3bb59a]',
+                  )}
+                >
+                  {item.change == null || item.change === 0 ? null : item.change < 0 ? (
+                    <TrendingDown className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <TrendingUp className="size-3.5" aria-hidden="true" />
+                  )}
+                  {formatChange(item.change)}
+                </p>
                 <p>{item.compare}</p>
               </div>
             ) : null}

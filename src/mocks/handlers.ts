@@ -1,6 +1,6 @@
 import { http } from 'msw';
 import { apiFail, apiOk } from '@/mocks/response';
-import type { Bot } from '@/types/bot';
+import type { Bot, BotStats, Subscriber, SubscriberPage } from '@/types/bot';
 import type {
   AuthResult,
   LoginSession,
@@ -45,6 +45,26 @@ let mockBots: Bot[] = [];
 export function resetMockBots(bots: Bot[] = []) {
   mockBots = bots;
 }
+
+/** 订阅者（内存态，默认空） */
+let mockSubscribers: Subscriber[] = [];
+
+/** 测试用：重置/预置 mock 订阅者 */
+export function resetMockSubscribers(subscribers: Subscriber[] = []) {
+  mockSubscribers = subscribers;
+}
+
+const MOCK_STATS: BotStats = {
+  followersAll: 2420,
+  followersAllChange: 20,
+  addedToday: 125,
+  addedTodayChange: 32,
+  activeToday: 316,
+  unsubscribedToday: 12,
+  unsubscribedTodayChange: -8,
+};
+
+const CSV_BOM = '\uFEFF';
 
 /** 约定：这两个 token 分别触发「token 无效」「已被其他账号绑定」 */
 export const MOCK_INVALID_BOT_TOKEN = '1:invalid';
@@ -174,5 +194,102 @@ export const handlers = [
     };
     if (!existing) mockBots = [...mockBots, bot];
     return apiOk(bot);
+  }),
+
+  // 修改 Bot 显示名
+  http.patch(`${API_BASE}/bots/:id`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const bot = mockBots.find((item) => item.id === params.id);
+    if (!bot) return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    const body = (await request.json().catch(() => null)) as {
+      displayName?: string;
+      shortDescription?: string;
+    } | null;
+    const displayName = body?.displayName?.trim();
+    const shortDescription = body?.shortDescription;
+    const invalidName =
+      displayName !== undefined && (displayName.length === 0 || displayName.length > 64);
+    const invalidDescription = shortDescription !== undefined && shortDescription.length > 120;
+    const nothingToUpdate = displayName === undefined && shortDescription === undefined;
+    if (invalidName || invalidDescription || nothingToUpdate) {
+      return apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+        { path: [invalidDescription ? 'shortDescription' : 'displayName'], message: 'Invalid' },
+      ]);
+    }
+    const updated: Bot = {
+      ...bot,
+      displayName: displayName ?? bot.displayName,
+      shortDescription: shortDescription ?? bot.shortDescription,
+    };
+    mockBots = mockBots.map((item) => (item.id === bot.id ? updated : item));
+    return apiOk(updated);
+  }),
+
+  // 首页统计
+  http.get(`${API_BASE}/bots/:id/stats`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    return apiOk(MOCK_STATS);
+  }),
+
+  // 订阅者导出（CSV，不是 JSON 外壳）
+  http.get(`${API_BASE}/bots/:id/subscribers/export`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const rows = mockSubscribers.map((item) =>
+      [
+        [item.firstName, item.lastName].filter(Boolean).join(' '),
+        item.username ?? '',
+        item.firstSeenAt,
+        item.lastActiveAt,
+        item.phone ?? '',
+      ].join(','),
+    );
+    const csv = `${CSV_BOM}姓名,用户名,首次进入,最近活跃,手机号\n${rows.join('\n')}`;
+    return new Response(csv, {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="subscribers.csv"',
+      },
+    });
+  }),
+
+  // 订阅者列表：按最近活跃倒序，支持搜索与分页
+  http.get(`${API_BASE}/bots/:id/subscribers`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    const page = Math.max(1, Number(url.searchParams.get('page')) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(url.searchParams.get('pageSize')) || 20));
+    const matched = mockSubscribers
+      .filter(
+        (item) =>
+          !q ||
+          item.firstName.toLowerCase().includes(q) ||
+          (item.username ?? '').toLowerCase().includes(q),
+      )
+      .sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
+    const model: SubscriberPage = {
+      items: matched.slice((page - 1) * pageSize, page * pageSize),
+      page,
+      pageSize,
+      total: matched.length,
+    };
+    return apiOk(model);
   }),
 ];
