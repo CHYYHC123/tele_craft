@@ -13,3 +13,8 @@ export function formatChange(change: number | null | undefined): string {
   if (change === null || change === undefined) return '--';
   return `${change > 0 ? '+' : ''}${change}%`;
 }
+
+/** 本地时间格式化为 24 小时制 `HH:mm`，如 16:40 */
+export function formatClockTime(date: Date): string {
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}

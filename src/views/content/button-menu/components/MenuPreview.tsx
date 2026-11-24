@@ -1,5 +1,5 @@
 import { useState, type DragEvent, type FC } from 'react';
-import { GripVertical, Keyboard, Mic, Paperclip, Plus, Trash2 } from 'lucide-react';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
 
 import { cn } from '@/utils';
 import { DEFAULT_BUTTON_LABEL, MAX_BUTTONS_PER_ROW } from '@/views/content/button-menu/constants';
@@ -16,7 +16,7 @@ interface MenuPreviewProps {
   onMoveToNewRow: (dragId: number) => void;
 }
 
-/** 手机底部：输入栏 + 自定义按钮键盘，覆盖在背景图自带的底栏之上 */
+/** 手机输入栏下方的自定义按钮键盘（输入栏与底部横条由 PhonePreview 提供） */
 const MenuPreview: FC<MenuPreviewProps> = ({
   rows,
   selectedId,
@@ -60,91 +60,71 @@ const MenuPreview: FC<MenuPreviewProps> = ({
   };
 
   return (
-    <div className="overflow-hidden rounded-b-2xl">
-      <div className="flex items-center gap-1.5 bg-[#f6f6f7] px-2 py-1.5 text-[#8a90a0]">
-        <Paperclip className="size-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
-        <div className="flex h-6 min-w-0 flex-1 items-center justify-between rounded-full border border-[#d9dce3] bg-white pr-0.5 pl-2.5 text-[10px] text-[#a0a5b1]">
-          Message
-          <span
-            className={cn(
-              'grid size-5 place-items-center rounded-md border',
-              rows.length === 0 ? 'border-[#2F6EFF]' : 'border-transparent',
-            )}
-          >
-            <Keyboard className="size-3.5" strokeWidth={1.8} aria-hidden="true" />
-          </span>
-        </div>
-        <Mic className="size-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
-      </div>
+    <div className="flex flex-col gap-1.5">
+      {rows.map((row) => (
+        <div key={row[0].id} role="group" aria-label="Menu row" className="flex gap-1.5">
+          {row.map((item) => {
+            const label = item.name.trim() || DEFAULT_BUTTON_LABEL;
+            const selected = item.id === selectedId;
 
-      <div className="flex flex-col gap-1 bg-[#d7e6cf] px-1.5 pt-1.5 pb-1">
-        {rows.map((row) => (
-          <div key={row[0].id} role="group" aria-label="Menu row" className="flex gap-1">
-            {row.map((item) => {
-              const label = item.name.trim() || DEFAULT_BUTTON_LABEL;
-              const selected = item.id === selectedId;
-
-              return (
-                <div
-                  key={item.id}
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData('text/plain', String(item.id));
-                    event.dataTransfer.effectAllowed = 'move';
-                    setDraggingId(item.id);
-                  }}
-                  onDragEnd={() => setDraggingId(null)}
-                  onDragOver={allowDrop}
-                  onDrop={(event) => handleDropOnButton(event, row, item)}
-                  className={cn(
-                    'flex h-7 min-w-0 flex-1 items-center gap-0.5 rounded-lg border-2 px-1',
-                    selected ? 'border-[#2F6EFF] bg-[#e3eefc]' : 'border-transparent bg-white',
-                    draggingId === item.id && 'opacity-50',
-                  )}
+            return (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData('text/plain', String(item.id));
+                  event.dataTransfer.effectAllowed = 'move';
+                  setDraggingId(item.id);
+                }}
+                onDragEnd={() => setDraggingId(null)}
+                onDragOver={allowDrop}
+                onDrop={(event) => handleDropOnButton(event, row, item)}
+                className={cn(
+                  'flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border bg-white px-3 py-2 shadow-2xs transition',
+                  selected
+                    ? 'border-emerald-500 ring-1 ring-emerald-500/30'
+                    : 'border-slate-200 hover:bg-slate-50',
+                  draggingId === item.id && 'opacity-50',
+                )}
+              >
+                <GripVertical
+                  className="size-3 shrink-0 cursor-grab text-slate-300"
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => onSelect(item.id)}
+                  className="min-w-0 flex-1 cursor-pointer truncate text-left text-xs font-medium text-slate-800"
                 >
-                  <GripVertical
-                    className="size-3 shrink-0 cursor-grab text-[#b5bac6]"
-                    aria-hidden="true"
-                  />
-                  <button
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => onSelect(item.id)}
-                    className="h-full min-w-0 flex-1 cursor-pointer truncate text-center text-[11px] font-medium text-[#191b26]"
-                  >
-                    {label}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${label}`}
-                    onClick={() => onRemove(item.id)}
-                    className="grid size-4 shrink-0 cursor-pointer place-items-center text-[#b5bac6] hover:text-[#5c6170]"
-                  >
-                    <Trash2 className="size-3" strokeWidth={1.8} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                  {label}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${label}`}
+                  onClick={() => onRemove(item.id)}
+                  className="grid shrink-0 cursor-pointer place-items-center p-0.5 text-slate-300 transition hover:text-rose-500"
+                >
+                  <Trash2 className="size-3.5" strokeWidth={2} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ))}
 
-        {canAdd ? (
-          <button
-            type="button"
-            onClick={onAdd}
-            onDragOver={allowDrop}
-            onDrop={handleDropOnAdd}
-            className="flex h-7 w-full cursor-pointer items-center justify-center gap-1 rounded-lg bg-white/80 text-[11px] font-medium text-[#3b3f4d]"
-          >
-            <Plus className="size-3" strokeWidth={2} aria-hidden="true" />
-            Add a button
-          </button>
-        ) : null}
-      </div>
-
-      <div className="bg-[#d7e6cf] pt-1 pb-1.5">
-        <span className="mx-auto block h-1 w-1/2 rounded-full bg-[#111]" aria-hidden="true" />
-      </div>
+      {canAdd ? (
+        <button
+          type="button"
+          onClick={onAdd}
+          onDragOver={allowDrop}
+          onDrop={handleDropOnAdd}
+          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-emerald-400 bg-emerald-50/70 py-2.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-[0.98]"
+        >
+          <Plus className="size-4" strokeWidth={2.2} aria-hidden="true" />
+          Add a button
+        </button>
+      ) : null}
     </div>
   );
 };

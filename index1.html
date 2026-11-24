@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>TeleCraft Bot Builder - Button Menu Configuration</title>
+  <!-- Tailwind CSS v3 with Plugins -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            emerald: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            },
+            telegram: {
+              bg: '#e6ede5',
+              header: '#ffffff',
+              bubble: '#ffffff',
+              accent: '#2AABEE'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <!-- BEGIN: Custom Styles -->
+  <style data-purpose="chat-preview-styles">
+    /* Telegram doodle background simulation */
+    .tg-wallpaper {
+      background-color: #dce7dc;
+      background-image: radial-gradient(#9db89e 0.75px, transparent 0.75px), radial-gradient(#9db89e 0.75px, #dce7dc 0.75px);
+      background-size: 30px 30px;
+      background-position: 0 0, 15px 15px;
+      opacity: 0.95;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+  <!-- END: Custom Styles -->
+</head>
+
+<body
+  class="bg-[#f8fafc] text-slate-800 font-sans antialiased min-h-screen flex flex-col selection:bg-emerald-100 selection:text-emerald-800">
+  <!-- BEGIN: TopNavigation -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-50 h-16 flex items-center justify-between px-6">
+    <div class="flex items-center gap-8">
+      <!-- Logo -->
+      <div class="flex items-center gap-2.5">
+        <div
+          class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-sm shadow-emerald-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2">
+            </path>
+          </svg>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-bold text-lg leading-tight tracking-tight text-slate-900 flex items-center gap-1.5">
+            TeleCraft
+            <span
+              class="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Bot
+              Builder</span>
+          </span>
+        </div>
+      </div>
+      <!-- Bot Switcher -->
+      <div class="relative" data-purpose="bot-switcher">
+        <button
+          class="flex items-center gap-2.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700">
+          <div class="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">🤖
+          </div>
+          <span>Bit. Store Card</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <svg class="w-4 h-4 text-slate-400 ml-1" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+            <path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <!-- Header Actions -->
+    <div class="flex items-center gap-4">
+      <button
+        class="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition"
+        title="Help &amp; Documentation">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+          <path
+            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+        </svg>
+      </button>
+      <button
+        class="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition relative"
+        title="Notifications">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+          <path
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+            stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+        </svg>
+        <span class="w-2 h-2 rounded-full bg-emerald-500 absolute top-2 right-2 border-2 border-white"></span>
+      </button>
+      <div class="h-6 w-px bg-slate-200"></div>
+      <!-- User Profile -->
+      <div class="flex items-center gap-2 cursor-pointer pl-1 group">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-400 to-rose-400 p-0.5">
+          <div
+            class="w-full h-full rounded-full bg-white overflow-hidden flex items-center justify-center font-bold text-xs text-slate-700">
+            TC
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <!-- END: TopNavigation -->
+  <!-- BEGIN: WorkspaceLayout -->
+  <div class="flex flex-1 overflow-hidden">
+    <!-- BEGIN: LeftSidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 p-4 select-none">
+      <nav class="space-y-1.5" data-purpose="primary-navigation">
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors font-medium text-sm"
+          href="#home">
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+            <path
+              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+              stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+          </svg>
+          Home
+        </a>
+        <!-- Content Group -->
+        <div class="pt-2">
+          <button
+            class="w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-slate-800 uppercase tracking-wider">
+            <span class="flex items-center gap-2.5">
+              <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                <path
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+              Content
+            </span>
+            <svg class="w-3.5 h-3.5 text-slate-400 transform rotate-180" fill="none" stroke="currentColor"
+              viewbox="0 0 24 24">
+              <path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+            </svg>
+          </button>
+          <div class="mt-1 pl-4 space-y-1">
+            <a class="block px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+              href="#welcome">
+              Welcome message
+            </a>
+            <a class="block px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+              href="#graphic">
+              Graphic message
+            </a>
+            <a class="block px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+              href="#reply">
+              Automatic reply
+            </a>
+            <a class="block px-3 py-2 text-sm font-medium rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+              href="#addmenu">
+              Add menu
+            </a>
+            <!-- Active Sub-item -->
+            <a class="block px-3 py-2 text-sm font-semibold rounded-lg bg-emerald-50 text-emerald-700 transition-colors"
+              href="#buttonmenu">
+              Button menu
+            </a>
+          </div>
+        </div>
+        <div class="pt-2">
+          <a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors font-medium text-sm"
+            href="#userchat">
+            <span class="flex items-center gap-3">
+              <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                <path
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"></path>
+              </svg>
+              User chat
+            </span>
+            <span class="px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full">12</span>
+          </a>
+        </div>
+      </nav>
+      <!-- Bottom Tutorial Widget -->
+      <div
+        class="rounded-2xl p-4 bg-gradient-to-br from-emerald-500 to-teal-600 text-white relative overflow-hidden shadow-sm"
+        data-purpose="tutorial-card">
+        <div class="relative z-10">
+          <span class="text-[11px] font-bold tracking-wider uppercase opacity-80">/start</span>
+          <h4 class="font-bold text-sm mt-0.5 leading-snug">How to start your robot configuration</h4>
+          <button
+            class="mt-3 px-3.5 py-1.5 bg-white text-emerald-800 text-xs font-semibold rounded-lg shadow-sm hover:bg-emerald-50 transition active:scale-95">
+            Start tutorial
+          </button>
+        </div>
+        <div class="absolute -right-2 -bottom-2 w-20 h-20 opacity-20 bg-white rounded-full pointer-events-none"></div>
+      </div>
+    </aside>
+    <!-- END: LeftSidebar -->
+    <!-- BEGIN: MainContentArea -->
+    <main class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+      <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Page Title & Status -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Button menu</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Customize persistent Telegram reply keyboard buttons for your
+              subscribers.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button class="text-xs font-medium text-slate-500 hover:text-slate-800 underline decoration-slate-300"
+              id="resetDemoBtn">
+              Reset to Empty State
+            </button>
+          </div>
+        </div>
+        <!-- Two Column Interactive Layout -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          <!-- BEGIN: TelegramMobileMockup (Left Column) -->
+          <div class="xl:col-span-5 flex justify-center" data-purpose="telegram-phone-preview">
+            <div class="w-[360px] bg-slate-900 rounded-[44px] p-3 shadow-2xl ring-1 ring-slate-800/60 shadow-slate-300">
+              <!-- Screen Container -->
+              <div
+                class="w-full bg-[#f4f7f4] rounded-[36px] overflow-hidden flex flex-col h-[700px] relative border border-slate-700/40">
+                <!-- iPhone Status Bar -->
+                <div class="h-10 bg-white flex items-center justify-between px-6 pt-2 select-none z-20 shrink-0">
+                  <span class="text-xs font-semibold text-slate-900">9:41</span>
+                  <!-- Dynamic Island / Speaker Pill -->
+                  <div class="w-20 h-3.5 bg-black rounded-full mx-auto"></div>
+                  <div class="flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-slate-900" fill="currentColor" viewbox="0 0 24 24">
+                      <path
+                        d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 21l3.6-1.04C9.37 20.57 10.65 21 12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9z">
+                      </path>
+                    </svg>
+                    <div class="w-4 h-2 rounded-sm border border-slate-900 p-0.5 flex items-center">
+                      <div class="h-full w-2.5 bg-slate-900 rounded-2xs"></div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Telegram Chat Header -->
+                <div
+                  class="bg-white px-4 py-2.5 flex items-center justify-between border-b border-slate-100 z-10 shrink-0">
+                  <button class="flex items-center text-[#2AABEE] text-sm font-medium hover:opacity-80">
+                    <svg class="w-4 h-4 mr-0.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                      <path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5">
+                      </path>
+                    </svg>
+                    Chats
+                  </button>
+                  <div class="text-center">
+                    <div class="text-xs font-bold text-slate-900 leading-tight">Bit. Store Card</div>
+                    <div class="text-[10px] text-slate-400">bot</div>
+                  </div>
+                  <div
+                    class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
+                    <div
+                      class="w-full h-full bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center text-white text-[11px] font-bold">
+                      💳</div>
+                  </div>
+                </div>
+                <!-- Chat Body with Wallpaper -->
+                <div class="flex-1 tg-wallpaper relative p-4 flex flex-col justify-end overflow-hidden">
+                  <div
+                    class="self-center bg-white/70 backdrop-blur-xs text-slate-500 text-[11px] font-medium px-3 py-1 rounded-full mb-auto mt-4 shadow-2xs">
+                    Today
+                  </div>
+                  <!-- Bot Greeting Bubble Example -->
+                  <div
+                    class="hidden max-w-[85%] bg-white rounded-2xl rounded-bl-xs p-3.5 shadow-sm text-xs text-slate-700 mb-3 space-y-1"
+                    id="botChatBubble">
+                    <p id="previewBubbleText">Hi, welcome to our support bot. Please type your questions here, we'll
+                      reply as soon as we can!</p>
+                    <div class="text-[10px] text-slate-400 text-right">9:42</div>
+                  </div>
+                </div>
+                <!-- Telegram Input & Keyboard Menu Area -->
+                <div class="bg-white border-t border-slate-200/80 p-2.5 space-y-2 z-20 shrink-0">
+                  <!-- Message Input Bar -->
+                  <div class="flex items-center gap-2">
+                    <button class="text-slate-400 hover:text-slate-600 transition p-1">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                        <path
+                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                          stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                      </svg>
+                    </button>
+                    <div
+                      class="flex-1 bg-slate-100 rounded-full px-3.5 py-1.5 flex items-center justify-between text-xs text-slate-400">
+                      <span>Message</span>
+                      <button class="text-slate-400 hover:text-slate-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                          <rect height="12" rx="2" stroke-width="2" width="18" x="3" y="6"></rect>
+                          <circle cx="7" cy="10" fill="currentColor" r="1"></circle>
+                          <circle cx="12" cy="10" fill="currentColor" r="1"></circle>
+                          <circle cx="17" cy="10" fill="currentColor" r="1"></circle>
+                          <circle cx="7" cy="14" fill="currentColor" r="1"></circle>
+                          <circle cx="12" cy="14" fill="currentColor" r="1"></circle>
+                          <circle cx="17" cy="14" fill="currentColor" r="1"></circle>
+                        </svg>
+                      </button>
+                    </div>
+                    <button class="text-slate-400 hover:text-slate-600 transition p-1">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                        <path
+                          d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                          stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <!-- Bot Reply Keyboard Dynamic Buttons Container -->
+                  <div class="space-y-1.5 pt-1" data-purpose="telegram-reply-buttons" id="phoneKeyboardContainer">
+                    <!-- Dynamic buttons will be inserted here by JavaScript -->
+                  </div>
+                  <!-- Bottom Add a Button inside Phone Mockup -->
+                  <button
+                    class="w-full py-2.5 rounded-xl border-2 border-dashed border-emerald-400 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-[0.98]"
+                    id="phoneAddBtn">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+                      <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"></path>
+                    </svg>
+                    <span>Add a button</span>
+                  </button>
+                  <!-- Home Indicator Bar -->
+                  <div class="w-32 h-1 bg-slate-300 rounded-full mx-auto pt-0.5"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- END: TelegramMobileMockup -->
+          <!-- BEGIN: ConfigurationCard (Right Column) -->
+         
+          <!-- END: ConfigurationCard -->
+        </div>
+      </div>
+    </main>
+    <!-- END: MainContentArea -->
+  </div>
+  <!-- END: WorkspaceLayout -->
+  <!-- BEGIN: InteractiveScript -->
+  <script data-purpose="button-menu-interactions">
+    // State storage
+    const state = {
+      isEditing: false,
+      buttons: [
+        // Initially empty to demonstrate Empty State, user can click Add
+      ]
+    };
+
+    // DOM Elements
+    const emptyStateCard = document.getElementById('emptyStateCard');
+    const editingStateCard = document.getElementById('editingStateCard');
+    const emptyStateAddBtn = document.getElementById('emptyStateAddBtn');
+    const phoneAddBtn = document.getElementById('phoneAddBtn');
+    const cancelFormBtn = document.getElementById('cancelFormBtn');
+    const saveFormBtn = document.getElementById('saveFormBtn');
+    const resetDemoBtn = document.getElementById('resetDemoBtn');
+
+    const phoneKeyboardContainer = document.getElementById('phoneKeyboardContainer');
+    const botChatBubble = document.getElementById('botChatBubble');
+    const previewBubbleText = document.getElementById('previewBubbleText');
+    const inputBtnName = document.getElementById('inputBtnName');
+    const textResponseArea = document.getElementById('textResponseArea');
+    const charCountLabel = document.getElementById('charCountLabel');
+
+    // Render buttons into mobile preview
+    function renderPhoneButtons () {
+      phoneKeyboardContainer.innerHTML = '';
+
+      if (state.buttons.length === 0) {
+        botChatBubble.classList.add('hidden');
+        return;
+      }
+
+      botChatBubble.classList.remove('hidden');
+
+      // Group layout: First 2 buttons side-by-side, remaining full width (as in Telegram layouts)
+      if (state.buttons.length === 1) {
+        const btn = state.buttons[0];
+        const btnElem = createButtonElement(btn, 0);
+        phoneKeyboardContainer.appendChild(btnElem);
+      } else if (state.buttons.length === 2) {
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-2 gap-1.5';
+        state.buttons.forEach((btn, index) => {
+          row.appendChild(createButtonElement(btn, index, true));
+        });
+        phoneKeyboardContainer.appendChild(row);
+      } else {
+        // Two buttons in first row, remaining in single lines
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-2 gap-1.5';
+        row.appendChild(createButtonElement(state.buttons[0], 0, true));
+        row.appendChild(createButtonElement(state.buttons[1], 1, true));
+        phoneKeyboardContainer.appendChild(row);
+
+        for (let i = 2; i < state.buttons.length; i++) {
+          phoneKeyboardContainer.appendChild(createButtonElement(state.buttons[i], i));
+        }
+      }
+    }
+
+    function createButtonElement (btn, index, isGrid = false) {
+      const container = document.createElement('div');
+      container.className = `flex items-center justify-between px-3 py-2 bg-white rounded-xl border ${btn.active ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-slate-200'} shadow-2xs hover:bg-slate-50 transition cursor-pointer select-none`;
+
+      container.innerHTML = `
+        <div class="flex items-center gap-1.5 truncate">
+          <svg class="w-3 h-3 text-slate-300 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 3H7v2h2V3zm0 4H7v2h2V7zm0 4H7v2h2v-2zm0 4H7v2h2v-2zm0 4H7v2h2v-2zm6-16h-2v2h2V3zm0 4h-2v2h2V7zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg>
+          <span class="text-xs font-medium text-slate-800 truncate">${btn.label}</span>
+        </div>
+        <button class="delete-btn text-slate-300 hover:text-rose-500 p-0.5 transition shrink-0" title="Delete button">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </button>
+      `;
+
+      // Select button to edit
+      container.addEventListener('click', (e) => {
+        if (!e.target.closest('.delete-btn')) {
+          selectButtonForEditing(index);
+        }
+      });
+
+      // Delete action
+      const delBtn = container.querySelector('.delete-btn');
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeButton(index);
+      });
+
+      return container;
+    }
+
+    function transitionToEditing () {
+      state.isEditing = true;
+      emptyStateCard.classList.add('hidden');
+      editingStateCard.classList.remove('hidden');
+    }
+
+    function transitionToEmpty () {
+      state.isEditing = false;
+      state.buttons = [];
+      editingStateCard.classList.add('hidden');
+      emptyStateCard.classList.remove('hidden');
+      renderPhoneButtons();
+    }
+
+    function addNewButton () {
+      transitionToEditing();
+      const newIndex = state.buttons.length + 1;
+      const newLabel = newIndex === 1 ? '💳 Create Card' : `Button ${newIndex}`;
+
+      state.buttons.forEach(b => b.active = false);
+      state.buttons.push({
+        label: newLabel,
+        desc: 'menu description',
+        response: textResponseArea.value,
+        active: true
+      });
+
+      inputBtnName.value = newLabel;
+      renderPhoneButtons();
+    }
+
+    function selectButtonForEditing (index) {
+      transitionToEditing();
+      state.buttons.forEach((b, i) => b.active = i === index);
+      const activeBtn = state.buttons[index];
+      inputBtnName.value = activeBtn.label;
+      renderPhoneButtons();
+    }
+
+    function removeButton (index) {
+      state.buttons.splice(index, 1);
+      if (state.buttons.length === 0) {
+        transitionToEmpty();
+      } else {
+        state.buttons[0].active = true;
+        inputBtnName.value = state.buttons[0].label;
+        renderPhoneButtons();
+      }
+    }
+
+    // Input Synching
+    inputBtnName.addEventListener('input', (e) => {
+      const activeBtn = state.buttons.find(b => b.active);
+      if (activeBtn) {
+        activeBtn.label = e.target.value || 'New Button';
+        renderPhoneButtons();
+      }
+    });
+
+    textResponseArea.addEventListener('input', (e) => {
+      const text = e.target.value;
+      previewBubbleText.textContent = text || '...';
+      const remaining = 300 - text.length;
+      charCountLabel.textContent = `${Math.max(0, remaining)} characters left`;
+    });
+
+    // Button event listeners
+    emptyStateAddBtn.addEventListener('click', addNewButton);
+    phoneAddBtn.addEventListener('click', addNewButton);
+
+    cancelFormBtn.addEventListener('click', () => {
+      if (confirm('Discard unsaved changes?')) {
+        transitionToEmpty();
+      }
+    });
+
+    saveFormBtn.addEventListener('click', () => {
+      // Visual feedback for save action
+      saveFormBtn.classList.remove('bg-emerald-600');
+      saveFormBtn.classList.add('bg-slate-800');
+      saveFormBtn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>Saved!</span>
+      `;
+      setTimeout(() => {
+        saveFormBtn.classList.add('bg-emerald-600');
+        saveFormBtn.classList.remove('bg-slate-800');
+        saveFormBtn.innerHTML = 'Save';
+      }, 1000);
+    });
+
+    resetDemoBtn.addEventListener('click', transitionToEmpty);
+
+    // Initial render
+    renderPhoneButtons();
+  </script>
+  <!-- END: InteractiveScript -->
+</body>
+
+</html>

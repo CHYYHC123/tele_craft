@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 
-import graBg from '@/assets/image/content/gra_bg.png';
 import PhonePreview from '@/components/PhonePreview';
+import { TELEGRAM_WALLPAPER_COLORS } from '@/utils/gradient';
 import EmptyMenuCard from '@/views/content/button-menu/components/EmptyMenuCard';
 import MenuInformation from '@/views/content/button-menu/components/MenuInformation';
 import MenuPreview from '@/views/content/button-menu/components/MenuPreview';
@@ -17,18 +17,22 @@ const ButtonMenu: FC = () => {
       <h1 className="text-2xl font-semibold">Button menu</h1>
 
       <div className="mt-5 flex flex-col items-start gap-6 lg:flex-row">
-        <PhonePreview background={graBg} botName={BOT_NAME} contentBottom={0.3}>
-          <MenuPreview
-            rows={menu.rows}
-            selectedId={selected?.id ?? null}
-            canAdd={menu.canAdd}
-            onSelect={menu.selectButton}
-            onAdd={menu.addButton}
-            onRemove={menu.removeButton}
-            onMove={menu.moveTo}
-            onMoveToNewRow={menu.moveToNewRow}
-          />
-        </PhonePreview>
+        <PhonePreview
+          wallpaperColors={TELEGRAM_WALLPAPER_COLORS}
+          botName={BOT_NAME}
+          keyboard={
+            <MenuPreview
+              rows={menu.rows}
+              selectedId={selected?.id ?? null}
+              canAdd={menu.canAdd}
+              onSelect={menu.selectButton}
+              onAdd={menu.addButton}
+              onRemove={menu.removeButton}
+              onMove={menu.moveTo}
+              onMoveToNewRow={menu.moveToNewRow}
+            />
+          }
+        />
 
         {selected ? (
           <MenuInformation

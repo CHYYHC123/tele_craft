@@ -1,9 +1,9 @@
 import { useState, type FC } from 'react';
 
-import welBg from '@/assets/image/content/wel_bg.png';
 import Button from '@/components/Button';
 import MessageBubble from '@/components/MessageBubble';
 import PhonePreview from '@/components/PhonePreview';
+import { TELEGRAM_WALLPAPER_COLORS } from '@/utils/gradient';
 import {
   BOT_NAME,
   DEFAULT_WELCOME_MESSAGE,
@@ -19,7 +19,7 @@ const WelcomeMessage: FC = () => {
       <h1 className="text-2xl font-semibold">Welcome message</h1>
 
       <div className="mt-5 flex flex-col items-start gap-6 lg:flex-row">
-        <PhonePreview background={welBg} botName={BOT_NAME} contentBottom={16}>
+        <PhonePreview wallpaperColors={TELEGRAM_WALLPAPER_COLORS} botName={BOT_NAME}>
           <MessageBubble text={description} selected />
         </PhonePreview>
 
