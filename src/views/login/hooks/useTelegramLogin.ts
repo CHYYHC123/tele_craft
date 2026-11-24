@@ -134,6 +134,23 @@ export const useTelegramLogin = () => {
 
     console.log('[TG] sdk params', { clientId, nonce, origin: location.origin });
 
+    // 临时调试：打印授权弹窗回传的原始 postMessage（SDK 会把非字符串的 result 当成 missing id_token）
+    const debugListener = (event: MessageEvent) => {
+      if (event.origin !== TELEGRAM_AUTH_ORIGIN) return;
+      let raw: unknown = event.data;
+      if (typeof raw === 'string') {
+        try {
+          raw = JSON.parse(raw);
+        } catch {
+          // 保持原始字符串
+        }
+      }
+      console.log('[TG] raw message from oauth.telegram.org', raw);
+      console.log('[TG] raw.result typeof =', typeof (raw as { result?: unknown })?.result);
+    };
+    window.addEventListener('message', debugListener);
+    window.setTimeout(() => window.removeEventListener('message', debugListener), 5 * 60_000);
+
     try {
       openTelegramAuth(
         api,
