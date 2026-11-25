@@ -111,6 +111,13 @@ export type UpdateAutoReplyParams = Partial<
   Pick<AutoReply, 'keywordEnabled' | 'receiveEnabled' | 'receiveContent'>
 >;
 
+/** 新增/修改关键词回复的请求体；修改时 keywords 按这次提交整批替换 */
+export interface KeywordReplyParams {
+  /** 1-10 个，不能以 / 开头，同一条里不能重复（忽略大小写） */
+  keywords: string[];
+  content: string;
+}
+
 /** 上传开场消息配图的返回：只有公网地址，不会改动已发布的消息 */
 export interface StartMessageImage {
   imageUrl: string;

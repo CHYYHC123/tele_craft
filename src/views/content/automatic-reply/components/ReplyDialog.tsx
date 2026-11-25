@@ -2,12 +2,13 @@ import { useState, type FC } from 'react';
 import { X } from 'lucide-react';
 
 import Button from '@/components/Button';
-import { REPLY_CONTENT_MAX_LENGTH } from '@/views/content/automatic-reply/constants';
-import type {
-  KeywordReply,
-  KeywordReplyDraft,
-  ReplyDialogMode,
-} from '@/views/content/automatic-reply/types';
+import type { KeywordReplyRule } from '@/types/bot';
+import {
+  KEYWORD_MAX_COUNT,
+  REPLY_CONTENT_MAX_LENGTH,
+} from '@/views/content/automatic-reply/constants';
+import type { KeywordReplyDraft, ReplyDialogMode } from '@/views/content/automatic-reply/types';
+import { formatKeywords, parseKeywords } from '@/views/content/automatic-reply/utils';
 
 const INPUT_CLASS =
   'w-full rounded-lg border border-[#e4e7ee] px-3 text-sm outline-none focus:border-[#2F6EFF] read-only:bg-[#f5f6f8]';
@@ -21,17 +22,34 @@ const TITLES: Record<ReplyDialogMode, string> = {
 interface ReplyDialogProps {
   mode: ReplyDialogMode;
   /** add 模式为 null */
-  reply: KeywordReply | null;
+  reply: KeywordReplyRule | null;
+  /** 提交中：禁用保存按钮 */
+  submitting?: boolean;
   onSubmit: (draft: KeywordReplyDraft) => void;
   onClose: () => void;
 }
 
-const ReplyDialog: FC<ReplyDialogProps> = ({ mode, reply, onSubmit, onClose }) => {
-  const [keywords, setKeywords] = useState(reply?.keywords ?? '');
+/** 返回关键词的前端预校验错误；通过时返回 null（重复/总数上限等交给服务端） */
+const validateKeywords = (keywords: string[]): string | null => {
+  if (keywords.length > KEYWORD_MAX_COUNT) return `At most ${KEYWORD_MAX_COUNT} keywords`;
+  if (keywords.some((word) => word.startsWith('/'))) return 'Keywords cannot start with "/"';
+  return null;
+};
+
+const ReplyDialog: FC<ReplyDialogProps> = ({
+  mode,
+  reply,
+  submitting = false,
+  onSubmit,
+  onClose,
+}) => {
+  const [keywords, setKeywords] = useState(formatKeywords(reply?.keywords ?? []));
   const [content, setContent] = useState(reply?.content ?? '');
 
   const readOnly = mode === 'details';
-  const canSubmit = keywords.trim() !== '' && content.trim() !== '';
+  const parsed = parseKeywords(keywords);
+  const keywordError = validateKeywords(parsed);
+  const canSubmit = parsed.length > 0 && !keywordError && content.trim() !== '' && !submitting;
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
@@ -59,10 +77,19 @@ const ReplyDialog: FC<ReplyDialogProps> = ({ mode, reply, onSubmit, onClose }) =
             <input
               value={keywords}
               readOnly={readOnly}
-              placeholder="Enter a keyword"
+              placeholder="Enter keywords, separated by commas"
               onChange={(event) => setKeywords(event.target.value)}
               className={`${INPUT_CLASS} mt-2 h-10`}
             />
+            {readOnly ? null : keywordError ? (
+              <span role="alert" className="mt-1 block text-xs text-red-500">
+                {keywordError}
+              </span>
+            ) : (
+              <span className="mt-1 block text-xs text-[#5c6170]">
+                Up to {KEYWORD_MAX_COUNT} keywords. Matching ignores case.
+              </span>
+            )}
           </label>
 
           <label className="block">
@@ -91,9 +118,9 @@ const ReplyDialog: FC<ReplyDialogProps> = ({ mode, reply, onSubmit, onClose }) =
             <Button
               className="rounded-lg"
               disabled={!canSubmit}
-              onClick={() => onSubmit({ keywords: keywords.trim(), content: content.trim() })}
+              onClick={() => onSubmit({ keywords: parsed, content: content.trim() })}
             >
-              Save
+              {submitting ? 'Saving...' : 'Save'}
             </Button>
           )}
         </footer>

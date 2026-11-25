@@ -39,17 +39,22 @@ const AutomaticReply: FC = () => {
       </div>
 
       <div className="mt-5">
-        {tab === 'keyword' ? (
-          <KeywordReplyPanel />
-        ) : currentBot && autoReply ? (
-          // 数据到位后再挂载；以 botId 为 key，切换 Bot 时重置草稿
+        {/* 数据到位后再挂载；以 botId 为 key，切换 Bot 时重置草稿 */}
+        {!currentBot || !autoReply ? null : tab === 'keyword' ? (
+          <KeywordReplyPanel
+            key={currentBot.id}
+            botId={currentBot.id}
+            keywordEnabled={autoReply.keywordEnabled}
+            replies={autoReply.keywordReplies}
+          />
+        ) : (
           <ReceiveReplyPanel
             key={currentBot.id}
             botId={currentBot.id}
             savedEnabled={autoReply.receiveEnabled}
             savedContent={autoReply.receiveContent}
           />
-        ) : null}
+        )}
       </div>
     </div>
   );

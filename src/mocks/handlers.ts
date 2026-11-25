@@ -5,6 +5,8 @@ import type {
   Bot,
   BotStats,
   BotWelcome,
+  KeywordReplyParams,
+  KeywordReplyRule,
   StartMessage,
   StartMessageImage,
   Subscriber,
@@ -108,6 +110,48 @@ const MOCK_IMAGE_TYPES = ['image/png', 'image/jpeg'];
 /** 开场消息文案允许的 HTML 标签 */
 const ALLOWED_TAG = /^<\/?(b|i|a|br)(\s[^>]*)?>$/i;
 const HTML_TAG = /<\/?[a-z][^>]*>/gi;
+
+const MOCK_KEYWORD_REPLY_LIMIT = 100;
+const MOCK_KEYWORD_MAX_COUNT = 10;
+const MOCK_KEYWORD_CONTENT_MAX = 370;
+
+/**
+ * 校验关键词回复请求体：格式不合法返回 400 VALIDATION_ERROR，
+ * 和 others（同一 Bot 的其它规则）重复返回 400 BAD_REQUEST，通过则返回规整后的值。
+ */
+function checkKeywordReply(
+  body: Partial<KeywordReplyParams> | null,
+  others: KeywordReplyRule[],
+): { value: KeywordReplyParams } | { error: Response } {
+  const validationError = (path: string) => ({
+    error: apiFail('VALIDATION_ERROR', '参数校验失败', 400, [{ path: [path], message: 'Invalid' }]),
+  });
+  const keywords = Array.isArray(body?.keywords)
+    ? body.keywords.map((word) => (typeof word === 'string' ? word.trim() : ''))
+    : [];
+  const lowered = keywords.map((word) => word.toLowerCase());
+  if (
+    keywords.length === 0 ||
+    keywords.length > MOCK_KEYWORD_MAX_COUNT ||
+    keywords.some((word) => !word || word.startsWith('/')) ||
+    new Set(lowered).size !== lowered.length
+  ) {
+    return validationError('keywords');
+  }
+  const content = typeof body?.content === 'string' ? body.content.trim() : '';
+  if (
+    !content ||
+    content.length > MOCK_KEYWORD_CONTENT_MAX ||
+    (content.match(HTML_TAG) ?? []).some((tag) => !ALLOWED_TAG.test(tag))
+  ) {
+    return validationError('content');
+  }
+  const taken = new Set(others.flatMap((item) => item.keywords.map((word) => word.toLowerCase())));
+  if (lowered.some((word) => taken.has(word))) {
+    return { error: apiFail('BAD_REQUEST', '关键词和已有规则重复', 400) };
+  }
+  return { value: { keywords, content } };
+}
 
 /** 订阅者（内存态，默认空） */
 let mockSubscribers: Subscriber[] = [];
@@ -454,6 +498,77 @@ export const handlers = [
     }
     mockAutoReplies.set(id, saved);
     return apiOk(saved);
+  }),
+
+  // 新增关键词回复
+  http.post(`${API_BASE}/bots/:id/keyword-replies`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const body = (await request.json().catch(() => null)) as Partial<KeywordReplyParams> | null;
+    const autoReply = mockAutoReplies.get(id) ?? EMPTY_AUTO_REPLY;
+    const checked = checkKeywordReply(body, autoReply.keywordReplies);
+    if ('error' in checked) return checked.error;
+    if (autoReply.keywordReplies.length >= MOCK_KEYWORD_REPLY_LIMIT) {
+      return apiFail('BAD_REQUEST', '这个 Bot 的关键词回复已达上限', 400);
+    }
+    const rule: KeywordReplyRule = { id: crypto.randomUUID(), ...checked.value };
+    mockAutoReplies.set(id, {
+      ...autoReply,
+      keywordReplies: [...autoReply.keywordReplies, rule],
+    });
+    return apiOk(rule);
+  }),
+
+  // 修改关键词回复：关键词整批替换，和自己原来的关键词不算重复
+  http.put(`${API_BASE}/bots/:id/keyword-replies/:replyId`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    const replyId = String(params.replyId);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const autoReply = mockAutoReplies.get(id) ?? EMPTY_AUTO_REPLY;
+    if (!autoReply.keywordReplies.some((item) => item.id === replyId)) {
+      return apiFail('NOT_FOUND', '关键词回复不存在', 404);
+    }
+    const body = (await request.json().catch(() => null)) as Partial<KeywordReplyParams> | null;
+    const others = autoReply.keywordReplies.filter((item) => item.id !== replyId);
+    const checked = checkKeywordReply(body, others);
+    if ('error' in checked) return checked.error;
+    const rule: KeywordReplyRule = { id: replyId, ...checked.value };
+    mockAutoReplies.set(id, {
+      ...autoReply,
+      keywordReplies: autoReply.keywordReplies.map((item) => (item.id === replyId ? rule : item)),
+    });
+    return apiOk(rule);
+  }),
+
+  // 删除关键词回复：成功 model 为 null，开关状态不变
+  http.delete(`${API_BASE}/bots/:id/keyword-replies/:replyId`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    const replyId = String(params.replyId);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const autoReply = mockAutoReplies.get(id) ?? EMPTY_AUTO_REPLY;
+    if (!autoReply.keywordReplies.some((item) => item.id === replyId)) {
+      return apiFail('NOT_FOUND', '关键词回复不存在', 404);
+    }
+    mockAutoReplies.set(id, {
+      ...autoReply,
+      keywordReplies: autoReply.keywordReplies.filter((item) => item.id !== replyId),
+    });
+    return apiOk(null);
   }),
 
   // 首页统计

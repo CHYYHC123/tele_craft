@@ -2,30 +2,46 @@ import { useState, type FC } from 'react';
 import { Search } from 'lucide-react';
 
 import Button from '@/components/Button';
+import { useUpdateBotAutoReply } from '@/hooks/useBots';
+import type { KeywordReplyRule } from '@/types/bot';
 import ReplyDialog from '@/views/content/automatic-reply/components/ReplyDialog';
 import ReplySwitchCard from '@/views/content/automatic-reply/components/ReplySwitchCard';
 import { useKeywordReplies } from '@/views/content/automatic-reply/hooks/useKeywordReplies';
-import type { KeywordReply, ReplyDialogMode } from '@/views/content/automatic-reply/types';
+import type { ReplyDialogMode } from '@/views/content/automatic-reply/types';
+import { formatKeywords } from '@/views/content/automatic-reply/utils';
 
 interface DialogState {
   mode: ReplyDialogMode;
-  reply: KeywordReply | null;
+  reply: KeywordReplyRule | null;
 }
 
-const ACTION_CLASS = 'cursor-pointer text-[#2F6EFF] hover:underline';
+interface KeywordReplyPanelProps {
+  botId: string;
+  /** 服务端已保存的关键词总开关 */
+  keywordEnabled: boolean;
+  /** 服务端已保存的全部关键词规则 */
+  replies: KeywordReplyRule[];
+}
 
-const KeywordReplyPanel: FC = () => {
-  const [enabled, setEnabled] = useState(true);
+const ACTION_CLASS = 'cursor-pointer text-[#2F6EFF] hover:underline disabled:opacity-50';
+
+const KeywordReplyPanel: FC<KeywordReplyPanelProps> = ({
+  botId,
+  keywordEnabled,
+  replies: saved,
+}) => {
   const [dialog, setDialog] = useState<DialogState | null>(null);
-  const { replies, search, setSearch, addReply, updateReply, removeReply } = useKeywordReplies();
+  const { mutate: updateAutoReply } = useUpdateBotAutoReply(botId);
+  const { replies, search, setSearch, addReply, updateReply, removeReply, isSaving, isRemoving } =
+    useKeywordReplies(botId, saved);
 
   return (
     <div className="space-y-5">
       <ReplySwitchCard
         title="Automatic reply"
         description="Quickly set up automatic replies by editing content or keyword rules. Once you turn off auto-responses, it will take effect immediately for all users."
-        checked={enabled}
-        onChange={setEnabled}
+        checked={keywordEnabled}
+        onChange={(checked) => updateAutoReply({ keywordEnabled: checked })}
       />
 
       <section className="rounded-2xl bg-white p-6">
@@ -56,7 +72,7 @@ const KeywordReplyPanel: FC = () => {
           <tbody>
             {replies.map((item) => (
               <tr key={item.id} className="border-b border-[#e4e7ee]">
-                <td className="px-6 py-4 align-middle">{item.keywords}</td>
+                <td className="px-6 py-4 align-middle">{formatKeywords(item.keywords)}</td>
                 <td className="px-3 py-4 align-middle">
                   <p className="max-w-sm leading-relaxed">{item.content}</p>
                 </td>
@@ -79,6 +95,7 @@ const KeywordReplyPanel: FC = () => {
                     <button
                       type="button"
                       className={ACTION_CLASS}
+                      disabled={isRemoving}
                       onClick={() => removeReply(item.id)}
                     >
                       Delete
@@ -99,11 +116,12 @@ const KeywordReplyPanel: FC = () => {
         <ReplyDialog
           mode={dialog.mode}
           reply={dialog.reply}
+          submitting={isSaving}
           onClose={() => setDialog(null)}
           onSubmit={(draft) => {
-            if (dialog.mode === 'edit' && dialog.reply) updateReply(dialog.reply.id, draft);
-            else addReply(draft);
-            setDialog(null);
+            const close = () => setDialog(null);
+            if (dialog.mode === 'edit' && dialog.reply) updateReply(dialog.reply.id, draft, close);
+            else addReply(draft, close);
           }}
         />
       ) : null}

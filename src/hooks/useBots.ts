@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 
 import {
   addBot,
+  addBotKeywordReply,
+  deleteBotKeywordReply,
   exportBotSubscribers,
   getBotAutoReply,
   getBotStats,
@@ -12,6 +14,7 @@ import {
   getBots,
   updateBot,
   updateBotAutoReply,
+  updateBotKeywordReply,
   updateBotStartMessage,
   updateBotWelcome,
   uploadBotStartMessageImage,
@@ -20,6 +23,8 @@ import { useBotStore } from '@/store/bot';
 import { useUiStore } from '@/store/ui';
 import { selectIsLoggedIn, useUserStore } from '@/store/user';
 import type {
+  AutoReply,
+  KeywordReplyParams,
   SubscribersParams,
   UpdateAutoReplyParams,
   UpdateBotParams,
@@ -152,6 +157,59 @@ export const useUpdateBotAutoReply = (botId: string | undefined) => {
     mutationFn: (data: UpdateAutoReplyParams) => updateBotAutoReply(botId as string, data),
     onSuccess: (autoReply) => {
       queryClient.setQueryData(botAutoReplyQueryKey(botId), autoReply);
+    },
+  });
+};
+
+/** 新增关键词回复：成功后把新规则追加进自动回复缓存；错误由请求拦截器统一 toast */
+export const useAddKeywordReply = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: KeywordReplyParams) => addBotKeywordReply(botId as string, data),
+    onSuccess: (rule) => {
+      queryClient.setQueryData<AutoReply>(botAutoReplyQueryKey(botId), (old) =>
+        old ? { ...old, keywordReplies: [...old.keywordReplies, rule] } : old,
+      );
+      toast.success('Reply added');
+    },
+  });
+};
+
+/** 修改关键词回复：成功后替换缓存里对应的规则 */
+export const useUpdateKeywordReply = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ replyId, ...data }: { replyId: string } & KeywordReplyParams) =>
+      updateBotKeywordReply(botId as string, replyId, data),
+    onSuccess: (rule) => {
+      queryClient.setQueryData<AutoReply>(botAutoReplyQueryKey(botId), (old) =>
+        old
+          ? {
+              ...old,
+              keywordReplies: old.keywordReplies.map((item) => (item.id === rule.id ? rule : item)),
+            }
+          : old,
+      );
+      toast.success('Reply saved');
+    },
+  });
+};
+
+/** 删除关键词回复：成功后从缓存里移除，开关状态不变 */
+export const useDeleteKeywordReply = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (replyId: string) => deleteBotKeywordReply(botId as string, replyId),
+    onSuccess: (_data, replyId) => {
+      queryClient.setQueryData<AutoReply>(botAutoReplyQueryKey(botId), (old) =>
+        old
+          ? { ...old, keywordReplies: old.keywordReplies.filter((item) => item.id !== replyId) }
+          : old,
+      );
+      toast.success('Reply deleted');
     },
   });
 };

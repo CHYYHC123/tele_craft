@@ -5,6 +5,8 @@ import type {
   Bot,
   BotStats,
   BotWelcome,
+  KeywordReplyParams,
+  KeywordReplyRule,
   StartMessage,
   StartMessageImage,
   SubscriberPage,
@@ -52,6 +54,18 @@ export const getBotAutoReply = (id: string) => http.get<AutoReply>(`/bots/${id}/
 /** 更新自动回复开关/兜底正文：只传要改的字段；不调用 Telegram，返回完整自动回复 */
 export const updateBotAutoReply = (id: string, data: UpdateAutoReplyParams) =>
   http.put<AutoReply>(`/bots/${id}/auto-reply`, data);
+
+/** 新增关键词回复：私聊整句命中任一关键词时回这条内容（忽略大小写、去首尾空格） */
+export const addBotKeywordReply = (id: string, data: KeywordReplyParams) =>
+  http.post<KeywordReplyRule>(`/bots/${id}/keyword-replies`, data);
+
+/** 修改关键词回复：关键词按这次提交整批替换 */
+export const updateBotKeywordReply = (id: string, replyId: string, data: KeywordReplyParams) =>
+  http.put<KeywordReplyRule>(`/bots/${id}/keyword-replies/${replyId}`, data);
+
+/** 删除关键词回复及其全部关键词；成功时 model 为 null，开关状态不变 */
+export const deleteBotKeywordReply = (id: string, replyId: string) =>
+  http.delete<null>(`/bots/${id}/keyword-replies/${replyId}`);
 
 /** 首页四张统计卡的数字 */
 export const getBotStats = (id: string) => http.get<BotStats>(`/bots/${id}/stats`);

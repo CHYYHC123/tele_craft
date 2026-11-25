@@ -1,4 +1,4 @@
-import type { KeywordReply, ReplyTab } from '@/views/content/automatic-reply/types';
+import type { ReplyTab } from '@/views/content/automatic-reply/types';
 
 export const REPLY_TABS: { value: ReplyTab; label: string }[] = [
   { value: 'keyword', label: 'Keyword reply' },
@@ -7,11 +7,5 @@ export const REPLY_TABS: { value: ReplyTab; label: string }[] = [
 
 export const REPLY_CONTENT_MAX_LENGTH = 370;
 
-export const DEFAULT_REPLY_CONTENT =
-  "Hi, welcome to our support bot. Please type your questions here, we'll reply as soon as we can!";
-
-export const INITIAL_KEYWORD_REPLIES: KeywordReply[] = [
-  { id: 1, keywords: 'Hello', content: DEFAULT_REPLY_CONTENT },
-  { id: 2, keywords: 'Hi', content: DEFAULT_REPLY_CONTENT },
-  { id: 3, keywords: 'Help', content: DEFAULT_REPLY_CONTENT },
-];
+/** 一条关键词回复最多包含的关键词数 */
+export const KEYWORD_MAX_COUNT = 10;

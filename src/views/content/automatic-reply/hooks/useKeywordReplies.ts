@@ -1,26 +1,24 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
-import { INITIAL_KEYWORD_REPLIES } from '@/views/content/automatic-reply/constants';
-import type { KeywordReply, KeywordReplyDraft } from '@/views/content/automatic-reply/types';
+import { useAddKeywordReply, useDeleteKeywordReply, useUpdateKeywordReply } from '@/hooks/useBots';
+import type { KeywordReplyRule } from '@/types/bot';
+import type { KeywordReplyDraft } from '@/views/content/automatic-reply/types';
 import { filterReplies } from '@/views/content/automatic-reply/utils';
 
-export const useKeywordReplies = () => {
-  const [replies, setReplies] = useState<KeywordReply[]>(INITIAL_KEYWORD_REPLIES);
+/** 关键词回复列表（本地搜索）+ 增删改；列表数据来自服务端，成功后由 mutation 更新缓存 */
+export const useKeywordReplies = (botId: string, replies: KeywordReplyRule[]) => {
   const [search, setSearch] = useState('');
-  const nextId = useRef(INITIAL_KEYWORD_REPLIES.length + 1);
+  const add = useAddKeywordReply(botId);
+  const update = useUpdateKeywordReply(botId);
+  const remove = useDeleteKeywordReply(botId);
 
-  const addReply = (draft: KeywordReplyDraft) => {
-    const id = nextId.current++;
-    setReplies((prev) => [...prev, { id, ...draft }]);
-  };
+  const addReply = (draft: KeywordReplyDraft, onSuccess?: () => void) =>
+    add.mutate(draft, { onSuccess });
 
-  const updateReply = (id: number, draft: KeywordReplyDraft) => {
-    setReplies((prev) => prev.map((item) => (item.id === id ? { ...item, ...draft } : item)));
-  };
+  const updateReply = (replyId: string, draft: KeywordReplyDraft, onSuccess?: () => void) =>
+    update.mutate({ replyId, ...draft }, { onSuccess });
 
-  const removeReply = (id: number) => {
-    setReplies((prev) => prev.filter((item) => item.id !== id));
-  };
+  const removeReply = (replyId: string) => remove.mutate(replyId);
 
   return {
     replies: filterReplies(replies, search),
@@ -29,5 +27,7 @@ export const useKeywordReplies = () => {
     addReply,
     updateReply,
     removeReply,
+    isSaving: add.isPending || update.isPending,
+    isRemoving: remove.isPending,
   };
 };
