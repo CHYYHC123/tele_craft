@@ -1,8 +1,7 @@
 import type { FC, ReactNode } from 'react';
 
 import { cn } from '@/utils';
-
-const LINK_PATTERN = /([A-Za-z0-9-]+\.(?:com|net|org|io|uz))(?=[\s!.,?]|$)/g;
+import { renderMarkdown } from '@/utils/markdown-render';
 
 interface MessageBubbleProps {
   text: string;
@@ -26,9 +25,6 @@ const MessageBubble: FC<MessageBubbleProps> = ({
   time,
   actions = [],
 }) => {
-  // split 带捕获组时，奇数下标即匹配到的链接
-  const parts = text.split(LINK_PATTERN);
-
   return (
     <div
       className={cn(
@@ -43,19 +39,7 @@ const MessageBubble: FC<MessageBubbleProps> = ({
             {title ? (
               <p className="mb-2 text-[11px] leading-snug font-medium wrap-break-word">{title}</p>
             ) : null}
-            {text ? (
-              <p className="text-[11px] leading-snug wrap-break-word whitespace-pre-wrap">
-                {parts.map((part, index) =>
-                  index % 2 === 1 ? (
-                    <span key={index} className="text-[#1d8cf8] underline">
-                      {part}
-                    </span>
-                  ) : (
-                    part
-                  ),
-                )}
-              </p>
-            ) : null}
+            {text ? <div className="text-[11px] leading-snug">{renderMarkdown(text)}</div> : null}
             {time ? (
               <span className="mt-0.5 block text-right text-[9px] text-[#7a93a8]">{time}</span>
             ) : null}

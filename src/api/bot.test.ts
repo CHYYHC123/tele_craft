@@ -5,14 +5,18 @@ import {
   exportBotSubscribers,
   getBotStats,
   getBotSubscribers,
+  getBotStartMessage,
   getBotWelcome,
   getBots,
   updateBot,
+  updateBotStartMessage,
   updateBotWelcome,
+  uploadBotStartMessageImage,
 } from '@/api/bot';
 import { apiFail, apiOk } from '@/mocks/response';
 import { server } from '@/mocks/server';
 import { useUserStore } from '@/store/user';
+import type { UpdateStartMessageParams } from '@/types/bot';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -164,6 +168,89 @@ describe('api/bot', () => {
     login();
     server.use(http.put(`${API}/bots/b1/welcome`, () => apiFail('1013', 'Telegram 拒绝', 400)));
     await expect(updateBotWelcome('b1', 'Hi')).rejects.toThrow();
+  });
+
+  it('getBotStartMessage：带 Bearer，解包未配置时的空模板', async () => {
+    login();
+    let authorization: string | null = null;
+    const empty = {
+      messageType: 'text',
+      imageUrl: null,
+      description: '',
+      buttonsEnabled: false,
+      buttons: [],
+    };
+    server.use(
+      http.get(`${API}/bots/b1/start-message`, ({ request }) => {
+        authorization = request.headers.get('authorization');
+        return apiOk(empty);
+      }),
+    );
+    await expect(getBotStartMessage('b1')).resolves.toEqual(empty);
+    expect(authorization).toBe('Bearer jwt-bot');
+  });
+
+  it('getBotStartMessage：bot 不存在（404）时 reject', async () => {
+    login();
+    server.use(
+      http.get(`${API}/bots/x/start-message`, () => apiFail('NOT_FOUND', 'Bot 不存在', 404)),
+    );
+    await expect(getBotStartMessage('x')).rejects.toThrow();
+  });
+
+  it('updateBotStartMessage：PUT 请求体是开场消息，返回保存后的内容', async () => {
+    login();
+    let body: unknown;
+    const saved = {
+      messageType: 'graphic',
+      imageUrl: 'https://example.blob.upstash.io/bots/b1/banner.jpg',
+      description: 'Hi, <b>welcome</b>',
+      buttonsEnabled: true,
+      buttons: [{ name: 'Crypto Pay', url: 'https://example.com/pay' }],
+    } satisfies UpdateStartMessageParams;
+    server.use(
+      http.put(`${API}/bots/b1/start-message`, async ({ request }) => {
+        body = await request.json();
+        return apiOk(saved);
+      }),
+    );
+    await expect(updateBotStartMessage('b1', saved)).resolves.toEqual(saved);
+    expect(body).toEqual(saved);
+  });
+
+  it('updateBotStartMessage：图片地址不属于这个 Bot（400）时 reject', async () => {
+    login();
+    server.use(
+      http.put(`${API}/bots/b1/start-message`, () =>
+        apiFail('BAD_REQUEST', 'imageUrl 不是这个 Bot 上传过的图片', 400),
+      ),
+    );
+    await expect(
+      updateBotStartMessage('b1', {
+        messageType: 'graphic',
+        imageUrl: 'https://other.example.com/a.jpg',
+        description: '',
+        buttonsEnabled: false,
+        buttons: [],
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('uploadBotStartMessageImage：multipart 文件字段名是 file，返回公网地址', async () => {
+    login();
+    let uploadedName: string | undefined;
+    server.use(
+      http.post(`${API}/bots/b1/start-message/image`, async ({ request }) => {
+        const form = await request.formData();
+        uploadedName = (form.get('file') as File | null)?.name;
+        return apiOk({ imageUrl: 'https://example.blob.upstash.io/bots/b1/banner.jpg' });
+      }),
+    );
+    const file = new File(['png'], 'banner.png', { type: 'image/png' });
+    await expect(uploadBotStartMessageImage('b1', file)).resolves.toEqual({
+      imageUrl: 'https://example.blob.upstash.io/bots/b1/banner.jpg',
+    });
+    expect(uploadedName).toBe('banner.png');
   });
 
   it('getBotStats：bot 不存在（404）时 reject', async () => {

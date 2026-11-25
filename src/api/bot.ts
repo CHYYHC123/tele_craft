@@ -4,9 +4,12 @@ import type {
   Bot,
   BotStats,
   BotWelcome,
+  StartMessage,
+  StartMessageImage,
   SubscriberPage,
   SubscribersParams,
   UpdateBotParams,
+  UpdateStartMessageParams,
 } from '@/types/bot';
 
 /** 查询当前用户已绑定的 Bot；没有绑定过时是空数组 */
@@ -25,6 +28,21 @@ export const getBotWelcome = (id: string) => http.get<BotWelcome>(`/bots/${id}/w
 /** 保存并发布欢迎语：先改 Telegram，成功后才写库；最长 512 个字符 */
 export const updateBotWelcome = (id: string, description: string) =>
   http.put<BotWelcome>(`/bots/${id}/welcome`, { description });
+
+/** 读取开场消息（点 Start 之后的图文/纯文本）；未配置时返回空模板 */
+export const getBotStartMessage = (id: string) =>
+  http.get<StartMessage>(`/bots/${id}/start-message`);
+
+/** 保存并发布开场消息：不调用 Telegram 资料接口，成功后返回已保存的内容 */
+export const updateBotStartMessage = (id: string, data: UpdateStartMessageParams) =>
+  http.put<StartMessage>(`/bots/${id}/start-message`, data);
+
+/** 上传开场消息配图（PNG/JPG，≤2MB，≤640×360），multipart 字段名 file；返回公网地址 */
+export const uploadBotStartMessageImage = (id: string, file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return http.post<StartMessageImage>(`/bots/${id}/start-message/image`, form);
+};
 
 /** 首页四张统计卡的数字 */
 export const getBotStats = (id: string) => http.get<BotStats>(`/bots/${id}/stats`);

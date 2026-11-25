@@ -1,6 +1,15 @@
 import { http } from 'msw';
 import { apiFail, apiOk } from '@/mocks/response';
-import type { Bot, BotStats, BotWelcome, Subscriber, SubscriberPage } from '@/types/bot';
+import type {
+  Bot,
+  BotStats,
+  BotWelcome,
+  StartMessage,
+  StartMessageImage,
+  Subscriber,
+  SubscriberPage,
+  UpdateStartMessageParams,
+} from '@/types/bot';
 import type {
   AuthResult,
   LoginSession,
@@ -54,6 +63,32 @@ export function resetMockWelcomes(welcomes: Record<string, string> = {}) {
   mockWelcomes.clear();
   Object.entries(welcomes).forEach(([id, description]) => mockWelcomes.set(id, description));
 }
+
+/** 未配置过开场消息时服务端返回的空模板 */
+const EMPTY_START_MESSAGE: StartMessage = {
+  messageType: 'text',
+  imageUrl: null,
+  description: '',
+  buttonsEnabled: false,
+  buttons: [],
+};
+
+/** 开场消息（内存态，按 bot id 存；没有记录表示未配置） */
+const mockStartMessages = new Map<string, StartMessage>();
+
+/** 测试用：重置/预置 mock 开场消息 */
+export function resetMockStartMessages(messages: Record<string, StartMessage> = {}) {
+  mockStartMessages.clear();
+  Object.entries(messages).forEach(([id, message]) => mockStartMessages.set(id, message));
+}
+
+/** 开场消息配图的公网地址前缀（真实地址由 Upstash Blob 返回，这里模拟同一格式） */
+const MOCK_BLOB_PREFIX = 'https://example.blob.upstash.io/bots/';
+const MOCK_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+const MOCK_IMAGE_TYPES = ['image/png', 'image/jpeg'];
+/** 开场消息文案允许的 HTML 标签 */
+const ALLOWED_TAG = /^<\/?(b|i|a|br)(\s[^>]*)?>$/i;
+const HTML_TAG = /<\/?[a-z][^>]*>/gi;
 
 /** 订阅者（内存态，默认空） */
 let mockSubscribers: Subscriber[] = [];
@@ -274,6 +309,91 @@ export const handlers = [
     mockWelcomes.set(String(params.id), description);
     const model: BotWelcome = { description };
     return apiOk(model);
+  }),
+
+  // 读取开场消息（未配置时返回空模板）
+  http.get(`${API_BASE}/bots/:id/start-message`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    return apiOk(mockStartMessages.get(String(params.id)) ?? EMPTY_START_MESSAGE);
+  }),
+
+  // 上传开场消息配图（multipart，文件字段名 file）：只返回公网地址，不改已发布的消息
+  http.post(`${API_BASE}/bots/:id/start-message/image`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const form = await request.formData().catch(() => null);
+    const file = form?.get('file');
+    // 这里只校验类型和大小；640×360 的尺寸校验留给真实后端
+    if (
+      !file ||
+      typeof file === 'string' ||
+      !MOCK_IMAGE_TYPES.includes(file.type) ||
+      file.size > MOCK_IMAGE_MAX_BYTES
+    ) {
+      return apiFail('BAD_REQUEST', '只支持 PNG/JPG，且不超过 2MB', 400);
+    }
+    const model: StartMessageImage = {
+      imageUrl: `${MOCK_BLOB_PREFIX}${String(params.id)}/${file.name}`,
+    };
+    return apiOk(model);
+  }),
+
+  // 保存并发布开场消息（不调 Telegram 资料接口）
+  http.put(`${API_BASE}/bots/:id/start-message`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const body = (await request.json().catch(() => null)) as UpdateStartMessageParams | null;
+    const isGraphic = body?.messageType === 'graphic';
+    const buttons = body?.buttons ?? [];
+    const description = body?.description;
+    const invalidDescription =
+      typeof description !== 'string' ||
+      description.length > 1024 ||
+      (description.match(HTML_TAG) ?? []).some((tag) => !ALLOWED_TAG.test(tag));
+    const invalidButtons =
+      !Array.isArray(buttons) ||
+      buttons.length > 10 ||
+      buttons.some(
+        (button) => !button.name || button.name.length > 64 || !/^https?:\/\//.test(button.url),
+      );
+
+    if (
+      !body ||
+      (body.messageType !== 'text' && body.messageType !== 'graphic') ||
+      invalidDescription ||
+      invalidButtons ||
+      (isGraphic && !body.imageUrl)
+    ) {
+      return apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+        { path: ['start-message'], message: 'Invalid' },
+      ]);
+    }
+    if (body?.imageUrl && !body.imageUrl.startsWith(`${MOCK_BLOB_PREFIX}${id}/`)) {
+      return apiFail('BAD_REQUEST', 'imageUrl 不是这个 Bot 上传过的图片', 400);
+    }
+    const saved: StartMessage = {
+      messageType: body.messageType,
+      imageUrl: isGraphic ? (body.imageUrl ?? null) : null,
+      description: description as string,
+      buttonsEnabled: Boolean(body.buttonsEnabled),
+      buttons,
+    };
+    mockStartMessages.set(id, saved);
+    return apiOk(saved);
   }),
 
   // 首页统计

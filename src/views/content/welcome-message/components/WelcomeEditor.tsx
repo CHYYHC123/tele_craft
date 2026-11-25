@@ -1,6 +1,7 @@
 import { useState, type FC } from 'react';
 
 import Button from '@/components/Button';
+import DescriptionEditor from '@/components/DescriptionEditor';
 import MessageBubble from '@/components/MessageBubble';
 import PhonePreview from '@/components/PhonePreview';
 import { useUpdateBotWelcome } from '@/hooks/useBots';
@@ -22,7 +23,6 @@ interface WelcomeEditorProps {
 const WelcomeEditor: FC<WelcomeEditorProps> = ({ botId, botName, savedDescription }) => {
   const [description, setDescription] = useState(savedDescription ?? '');
   const { mutate: publish, isPending } = useUpdateBotWelcome(botId);
-  const remaining = WELCOME_MESSAGE_MAX_LENGTH - description.length;
   const isDirty = description !== (savedDescription ?? '');
 
   return (
@@ -51,21 +51,16 @@ const WelcomeEditor: FC<WelcomeEditorProps> = ({ botId, botName, savedDescriptio
         </header>
 
         <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
-          <label htmlFor="welcome-description">
+          <div>
             <span className="block text-sm font-semibold">Description</span>
             <span className="mt-0.5 block text-xs text-[#5c6170]">Write a brief description</span>
-          </label>
-
-          <div>
-            <textarea
-              id="welcome-description"
-              value={description}
-              maxLength={WELCOME_MESSAGE_MAX_LENGTH}
-              onChange={(event) => setDescription(event.target.value)}
-              className="min-h-32 w-full resize-none rounded-lg border border-[#e4e7ee] p-3 text-sm leading-relaxed outline-none focus:border-[#2F6EFF]"
-            />
-            <p className="mt-2 text-xs text-[#5c6170]">{remaining} characters left</p>
           </div>
+
+          <DescriptionEditor
+            value={description}
+            maxLength={WELCOME_MESSAGE_MAX_LENGTH}
+            onChange={setDescription}
+          />
         </div>
       </section>
     </div>

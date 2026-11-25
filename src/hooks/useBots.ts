@@ -6,21 +6,26 @@ import {
   exportBotSubscribers,
   getBotStats,
   getBotSubscribers,
+  getBotStartMessage,
   getBotWelcome,
   getBots,
   updateBot,
+  updateBotStartMessage,
   updateBotWelcome,
+  uploadBotStartMessageImage,
 } from '@/api/bot';
 import { useBotStore } from '@/store/bot';
 import { useUiStore } from '@/store/ui';
 import { selectIsLoggedIn, useUserStore } from '@/store/user';
-import type { SubscribersParams, UpdateBotParams } from '@/types/bot';
+import type { SubscribersParams, UpdateBotParams, UpdateStartMessageParams } from '@/types/bot';
 import { downloadBlob } from '@/utils/download';
 
 export const BOTS_QUERY_KEY = ['bots'] as const;
 export const botStatsQueryKey = (botId: string | undefined) => ['bots', botId, 'stats'] as const;
 export const botWelcomeQueryKey = (botId: string | undefined) =>
   ['bots', botId, 'welcome'] as const;
+export const botStartMessageQueryKey = (botId: string | undefined) =>
+  ['bots', botId, 'start-message'] as const;
 export const botSubscribersQueryKey = (botId: string | undefined, params: SubscribersParams) =>
   ['bots', botId, 'subscribers', params] as const;
 
@@ -88,6 +93,14 @@ export const useBotWelcomeQuery = (botId: string | undefined) =>
     enabled: !!botId,
   });
 
+/** Bot 开场消息（点 Start 之后发出的消息）；没有 Bot 时不请求 */
+export const useBotStartMessageQuery = (botId: string | undefined) =>
+  useQuery({
+    queryKey: botStartMessageQueryKey(botId),
+    queryFn: () => getBotStartMessage(botId as string),
+    enabled: !!botId,
+  });
+
 /** 保存并发布欢迎语：成功后用服务端返回值更新缓存；错误由请求拦截器统一 toast */
 export const useUpdateBotWelcome = (botId: string | undefined) => {
   const queryClient = useQueryClient();
@@ -100,6 +113,25 @@ export const useUpdateBotWelcome = (botId: string | undefined) => {
     },
   });
 };
+
+/** 保存并发布开场消息：成功后用服务端返回值更新缓存；错误由请求拦截器统一 toast */
+export const useUpdateBotStartMessage = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: UpdateStartMessageParams) => updateBotStartMessage(botId as string, data),
+    onSuccess: (startMessage) => {
+      queryClient.setQueryData(botStartMessageQueryKey(botId), startMessage);
+      toast.success('Start message published');
+    },
+  });
+};
+
+/** 上传开场消息配图，只拿到公网地址；不改缓存，保存消息时再带上这个地址 */
+export const useUploadStartMessageImage = (botId: string | undefined) =>
+  useMutation({
+    mutationFn: (file: File) => uploadBotStartMessageImage(botId as string, file),
+  });
 
 /** 导出订阅者 CSV 并触发浏览器下载 */
 export const useExportSubscribers = () =>
