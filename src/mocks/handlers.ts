@@ -1,6 +1,7 @@
 import { http } from 'msw';
 import { apiFail, apiOk } from '@/mocks/response';
 import type {
+  AutoReply,
   Bot,
   BotStats,
   BotWelcome,
@@ -8,6 +9,7 @@ import type {
   StartMessageImage,
   Subscriber,
   SubscriberPage,
+  UpdateAutoReplyParams,
   UpdateStartMessageParams,
 } from '@/types/bot';
 import type {
@@ -80,6 +82,23 @@ const mockStartMessages = new Map<string, StartMessage>();
 export function resetMockStartMessages(messages: Record<string, StartMessage> = {}) {
   mockStartMessages.clear();
   Object.entries(messages).forEach(([id, message]) => mockStartMessages.set(id, message));
+}
+
+/** 未配置过自动回复时服务端返回的空模板 */
+const EMPTY_AUTO_REPLY: AutoReply = {
+  keywordEnabled: false,
+  receiveEnabled: false,
+  receiveContent: '',
+  keywordReplies: [],
+};
+
+/** 自动回复（内存态，按 bot id 存；没有记录表示未配置） */
+const mockAutoReplies = new Map<string, AutoReply>();
+
+/** 测试用：重置/预置 mock 自动回复 */
+export function resetMockAutoReplies(autoReplies: Record<string, AutoReply> = {}) {
+  mockAutoReplies.clear();
+  Object.entries(autoReplies).forEach(([id, value]) => mockAutoReplies.set(id, value));
 }
 
 /** 开场消息配图的公网地址前缀（真实地址由 Upstash Blob 返回，这里模拟同一格式） */
@@ -393,6 +412,47 @@ export const handlers = [
       buttons,
     };
     mockStartMessages.set(id, saved);
+    return apiOk(saved);
+  }),
+
+  // 读取自动回复（未配置时返回空模板）
+  http.get(`${API_BASE}/bots/:id/auto-reply`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    return apiOk(mockAutoReplies.get(String(params.id)) ?? EMPTY_AUTO_REPLY);
+  }),
+
+  // 更新自动回复开关/兜底正文：只合并提交的字段，返回完整对象
+  http.put(`${API_BASE}/bots/:id/auto-reply`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const body = (await request.json().catch(() => null)) as UpdateAutoReplyParams | null;
+    const patch: UpdateAutoReplyParams = {};
+    if (typeof body?.keywordEnabled === 'boolean') patch.keywordEnabled = body.keywordEnabled;
+    if (typeof body?.receiveEnabled === 'boolean') patch.receiveEnabled = body.receiveEnabled;
+    if (typeof body?.receiveContent === 'string') patch.receiveContent = body.receiveContent;
+    const invalidContent =
+      patch.receiveContent !== undefined &&
+      (patch.receiveContent.match(HTML_TAG) ?? []).some((tag) => !ALLOWED_TAG.test(tag));
+    if (Object.keys(patch).length === 0 || invalidContent) {
+      return apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+        { path: ['auto-reply'], message: 'Invalid' },
+      ]);
+    }
+    const saved: AutoReply = { ...(mockAutoReplies.get(id) ?? EMPTY_AUTO_REPLY), ...patch };
+    if (saved.receiveEnabled && saved.receiveContent.trim() === '') {
+      return apiFail('BAD_REQUEST', '兜底回复开启时正文不能为空', 400);
+    }
+    mockAutoReplies.set(id, saved);
     return apiOk(saved);
   }),
 

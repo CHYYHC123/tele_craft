@@ -2,7 +2,12 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
-import { resetMockBots, resetMockSubscribers, resetMockWelcomes } from '@/mocks/handlers';
+import {
+  resetMockAutoReplies,
+  resetMockBots,
+  resetMockSubscribers,
+  resetMockWelcomes,
+} from '@/mocks/handlers';
 import { server } from '@/mocks/server';
 
 // 测试全程启用 MSW：用例里可用 server.use(...) 覆盖单条 mock
@@ -15,6 +20,7 @@ afterEach(() => {
   resetMockBots();
   resetMockSubscribers();
   resetMockWelcomes();
+  resetMockAutoReplies();
 });
 
 afterAll(() => server.close());

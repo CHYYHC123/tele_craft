@@ -87,6 +87,30 @@ export interface UpdateStartMessageParams {
   buttons: StartMessageButton[];
 }
 
+/** 一条关键词自动回复规则 */
+export interface KeywordReplyRule {
+  id: string;
+  keywords: string[];
+  content: string;
+}
+
+/**
+ * Bot 自动回复：关键词开关、兜底（收到消息）回复和全部关键词规则。
+ * 未配置时两个开关为 false、receiveContent 为空字符串、keywordReplies 为空数组。
+ */
+export interface AutoReply {
+  keywordEnabled: boolean;
+  receiveEnabled: boolean;
+  receiveContent: string;
+  /** 按创建时间从早到晚排列 */
+  keywordReplies: KeywordReplyRule[];
+}
+
+/** 只更新提交的字段，至少传一个；兜底开关打开时正文不能为空 */
+export type UpdateAutoReplyParams = Partial<
+  Pick<AutoReply, 'keywordEnabled' | 'receiveEnabled' | 'receiveContent'>
+>;
+
 /** 上传开场消息配图的返回：只有公网地址，不会改动已发布的消息 */
 export interface StartMessageImage {
   imageUrl: string;

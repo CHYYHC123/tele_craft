@@ -1,6 +1,7 @@
 import request, { http } from '@/api/request';
 import type {
   AddBotParams,
+  AutoReply,
   Bot,
   BotStats,
   BotWelcome,
@@ -8,6 +9,7 @@ import type {
   StartMessageImage,
   SubscriberPage,
   SubscribersParams,
+  UpdateAutoReplyParams,
   UpdateBotParams,
   UpdateStartMessageParams,
 } from '@/types/bot';
@@ -43,6 +45,13 @@ export const uploadBotStartMessageImage = (id: string, file: File) => {
   form.append('file', file);
   return http.post<StartMessageImage>(`/bots/${id}/start-message/image`, form);
 };
+
+/** 读取自动回复：两个开关、兜底回复正文和全部关键词规则 */
+export const getBotAutoReply = (id: string) => http.get<AutoReply>(`/bots/${id}/auto-reply`);
+
+/** 更新自动回复开关/兜底正文：只传要改的字段；不调用 Telegram，返回完整自动回复 */
+export const updateBotAutoReply = (id: string, data: UpdateAutoReplyParams) =>
+  http.put<AutoReply>(`/bots/${id}/auto-reply`, data);
 
 /** 首页四张统计卡的数字 */
 export const getBotStats = (id: string) => http.get<BotStats>(`/bots/${id}/stats`);

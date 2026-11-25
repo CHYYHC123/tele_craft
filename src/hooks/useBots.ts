@@ -4,12 +4,14 @@ import { toast } from 'sonner';
 import {
   addBot,
   exportBotSubscribers,
+  getBotAutoReply,
   getBotStats,
   getBotSubscribers,
   getBotStartMessage,
   getBotWelcome,
   getBots,
   updateBot,
+  updateBotAutoReply,
   updateBotStartMessage,
   updateBotWelcome,
   uploadBotStartMessageImage,
@@ -17,7 +19,12 @@ import {
 import { useBotStore } from '@/store/bot';
 import { useUiStore } from '@/store/ui';
 import { selectIsLoggedIn, useUserStore } from '@/store/user';
-import type { SubscribersParams, UpdateBotParams, UpdateStartMessageParams } from '@/types/bot';
+import type {
+  SubscribersParams,
+  UpdateAutoReplyParams,
+  UpdateBotParams,
+  UpdateStartMessageParams,
+} from '@/types/bot';
 import { downloadBlob } from '@/utils/download';
 
 export const BOTS_QUERY_KEY = ['bots'] as const;
@@ -26,6 +33,8 @@ export const botWelcomeQueryKey = (botId: string | undefined) =>
   ['bots', botId, 'welcome'] as const;
 export const botStartMessageQueryKey = (botId: string | undefined) =>
   ['bots', botId, 'start-message'] as const;
+export const botAutoReplyQueryKey = (botId: string | undefined) =>
+  ['bots', botId, 'auto-reply'] as const;
 export const botSubscribersQueryKey = (botId: string | undefined, params: SubscribersParams) =>
   ['bots', botId, 'subscribers', params] as const;
 
@@ -123,6 +132,26 @@ export const useUpdateBotStartMessage = (botId: string | undefined) => {
     onSuccess: (startMessage) => {
       queryClient.setQueryData(botStartMessageQueryKey(botId), startMessage);
       toast.success('Start message published');
+    },
+  });
+};
+
+/** Bot 自动回复（开关、兜底正文、关键词规则）；没有 Bot 时不请求 */
+export const useBotAutoReplyQuery = (botId: string | undefined) =>
+  useQuery({
+    queryKey: botAutoReplyQueryKey(botId),
+    queryFn: () => getBotAutoReply(botId as string),
+    enabled: !!botId,
+  });
+
+/** 更新自动回复：成功后用服务端返回的完整数据覆盖缓存；错误由请求拦截器统一 toast */
+export const useUpdateBotAutoReply = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: UpdateAutoReplyParams) => updateBotAutoReply(botId as string, data),
+    onSuccess: (autoReply) => {
+      queryClient.setQueryData(botAutoReplyQueryKey(botId), autoReply);
     },
   });
 };

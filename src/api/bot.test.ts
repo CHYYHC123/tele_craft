@@ -3,12 +3,14 @@ import { describe, it, expect } from 'vitest';
 import {
   addBot,
   exportBotSubscribers,
+  getBotAutoReply,
   getBotStats,
   getBotSubscribers,
   getBotStartMessage,
   getBotWelcome,
   getBots,
   updateBot,
+  updateBotAutoReply,
   updateBotStartMessage,
   updateBotWelcome,
   uploadBotStartMessageImage,
@@ -251,6 +253,54 @@ describe('api/bot', () => {
       imageUrl: 'https://example.blob.upstash.io/bots/b1/banner.jpg',
     });
     expect(uploadedName).toBe('banner.png');
+  });
+
+  it('getBotAutoReply：带 Bearer，解包自动回复（含规则）', async () => {
+    login();
+    let authorization: string | null = null;
+    const autoReply = {
+      keywordEnabled: true,
+      receiveEnabled: false,
+      receiveContent: '',
+      keywordReplies: [{ id: 'r1', keywords: ['Hello'], content: 'Hi' }],
+    };
+    server.use(
+      http.get(`${API}/bots/b1/auto-reply`, ({ request }) => {
+        authorization = request.headers.get('authorization');
+        return apiOk(autoReply);
+      }),
+    );
+    await expect(getBotAutoReply('b1')).resolves.toEqual(autoReply);
+    expect(authorization).toBe('Bearer jwt-bot');
+  });
+
+  it('updateBotAutoReply：PUT 请求体只含提交的字段，返回完整自动回复', async () => {
+    login();
+    let body: unknown;
+    const saved = {
+      keywordEnabled: false,
+      receiveEnabled: true,
+      receiveContent: 'We will reply soon.',
+      keywordReplies: [],
+    };
+    server.use(
+      http.put(`${API}/bots/b1/auto-reply`, async ({ request }) => {
+        body = await request.json();
+        return apiOk(saved);
+      }),
+    );
+    await expect(
+      updateBotAutoReply('b1', { receiveEnabled: true, receiveContent: 'We will reply soon.' }),
+    ).resolves.toEqual(saved);
+    expect(body).toEqual({ receiveEnabled: true, receiveContent: 'We will reply soon.' });
+  });
+
+  it('updateBotAutoReply：兜底开关打开但正文为空（400）时 reject', async () => {
+    login();
+    server.use(
+      http.put(`${API}/bots/b1/auto-reply`, () => apiFail('BAD_REQUEST', '正文不能为空', 400)),
+    );
+    await expect(updateBotAutoReply('b1', { receiveEnabled: true })).rejects.toThrow();
   });
 
   it('getBotStats：bot 不存在（404）时 reject', async () => {

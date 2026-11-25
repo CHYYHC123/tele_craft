@@ -1,6 +1,9 @@
 import { useState, type FC } from 'react';
 
+import { useBotAutoReplyQuery, useBotsQuery } from '@/hooks/useBots';
+import { useBotStore } from '@/store/bot';
 import { cn } from '@/utils';
+import { resolveCurrentBot } from '@/utils/bot';
 import KeywordReplyPanel from '@/views/content/automatic-reply/components/KeywordReplyPanel';
 import ReceiveReplyPanel from '@/views/content/automatic-reply/components/ReceiveReplyPanel';
 import { REPLY_TABS } from '@/views/content/automatic-reply/constants';
@@ -8,6 +11,10 @@ import type { ReplyTab } from '@/views/content/automatic-reply/types';
 
 const AutomaticReply: FC = () => {
   const [tab, setTab] = useState<ReplyTab>('keyword');
+  const selectedBotId = useBotStore((state) => state.selectedBotId);
+  const { data: bots = [] } = useBotsQuery();
+  const currentBot = resolveCurrentBot(bots, selectedBotId);
+  const { data: autoReply } = useBotAutoReplyQuery(currentBot?.id);
 
   return (
     <div>
@@ -32,7 +39,17 @@ const AutomaticReply: FC = () => {
       </div>
 
       <div className="mt-5">
-        {tab === 'keyword' ? <KeywordReplyPanel /> : <ReceiveReplyPanel />}
+        {tab === 'keyword' ? (
+          <KeywordReplyPanel />
+        ) : currentBot && autoReply ? (
+          // 数据到位后再挂载；以 botId 为 key，切换 Bot 时重置草稿
+          <ReceiveReplyPanel
+            key={currentBot.id}
+            botId={currentBot.id}
+            savedEnabled={autoReply.receiveEnabled}
+            savedContent={autoReply.receiveContent}
+          />
+        ) : null}
       </div>
     </div>
   );
