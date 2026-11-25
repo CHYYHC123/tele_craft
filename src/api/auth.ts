@@ -12,6 +12,9 @@ export const getLoginSession = (token: string) =>
 export const exchangeLoginSession = (token: string, clientSecret: string) =>
   http.post<AuthResult>(`/auth/telegram/sessions/${token}/exchange`, { clientSecret });
 
+/** 退出登录：让当前 accessToken 立即失效（没有请求体）。本地登录态由调用方清理，失败不弹全局错误 */
+export const logout = () => http.post<null>('/auth/logout', undefined, { silent: true });
+
 /** 弹窗登录：领取一次性 nonce 与 Client ID */
 export const getSdkNonce = () => http.post<SdkNonce>('/auth/telegram/sdk/nonce');
 

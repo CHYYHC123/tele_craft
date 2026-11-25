@@ -7,13 +7,10 @@ import { useBotsQuery } from '@/hooks/useBots';
 import BotSwitcher from '@/layouts/bot-switcher';
 import { useBotStore } from '@/store/bot';
 import { useUiStore } from '@/store/ui';
-import { useUserStore } from '@/store/user';
+import UserMenu from '@/layouts/user-menu';
 import { resolveCurrentBot } from '@/utils/bot';
-import { getUserDisplayName } from '@/utils/user';
 
 const AppHeader: FC = () => {
-  const user = useUserStore((state) => state.user);
-  const displayName = getUserDisplayName(user);
   const openAddBot = useUiStore((state) => state.openAddBot);
   const selectedBotId = useBotStore((state) => state.selectedBotId);
   const { data: bots = [] } = useBotsQuery();
@@ -50,13 +47,7 @@ const AppHeader: FC = () => {
         >
           <CircleHelp className="size-5" strokeWidth={1.8} />
         </button>
-        <span
-          aria-hidden={!displayName}
-          title={displayName}
-          className="grid size-9 place-items-center rounded-full bg-[#e4e7ee] text-sm font-medium text-[#5c6170]"
-        >
-          {displayName[0]?.toUpperCase() ?? ''}
-        </span>
+        <UserMenu />
       </div>
     </header>
   );

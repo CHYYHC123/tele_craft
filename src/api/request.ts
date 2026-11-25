@@ -39,9 +39,9 @@ const request = axios.create({
   timeout: 10_000,
 });
 
-// 请求拦截器：登录相关接口（/auth/）不带登录态，其余注入 Bearer accessToken
+// 请求拦截器：Telegram 登录接口（/auth/telegram/）不带登录态，其余（含 /auth/logout）注入 Bearer accessToken
 request.interceptors.request.use((config) => {
-  if (config.url?.startsWith('/auth/')) return config;
+  if (config.url?.startsWith('/auth/telegram/')) return config;
   const token = useUserStore.getState().token;
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;

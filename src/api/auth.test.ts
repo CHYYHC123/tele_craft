@@ -6,6 +6,7 @@ import {
   getLoginSession,
   getSdkNonce,
   loginWithSdk,
+  logout,
 } from '@/api/auth';
 import { apiFail, apiOk } from '@/mocks/response';
 import { server } from '@/mocks/server';
@@ -102,6 +103,34 @@ describe('api/auth 弹窗登录', () => {
     await expect(loginWithSdk('bad')).rejects.toThrow();
     expect(useUserStore.getState().token).toBe('old');
     useUserStore.getState().logout();
+  });
+});
+
+describe('api/auth 退出登录', () => {
+  const user = { id: 'u', telegramId: '1', firstName: '', lastName: '', username: '' };
+
+  it('POST /auth/logout 带 Bearer 凭证且没有请求体', async () => {
+    useUserStore.getState().setAuth({ accessToken: 'jwt-out', expiresIn: 60, user });
+    let authorization: string | null = null;
+    let body = '';
+    server.use(
+      http.post(`${API}/auth/logout`, async ({ request }) => {
+        authorization = request.headers.get('authorization');
+        body = await request.text();
+        return apiOk(null);
+      }),
+    );
+    await expect(logout()).resolves.toBeNull();
+    expect(authorization).toBe('Bearer jwt-out');
+    expect(body).toBe('');
+    useUserStore.getState().logout();
+  });
+
+  it('凭证已失效（401）时 reject，并清空本地登录态', async () => {
+    useUserStore.getState().setAuth({ accessToken: 'dead', expiresIn: 60, user });
+    server.use(http.post(`${API}/auth/logout`, () => apiFail('UNAUTHORIZED', 'expired', 401)));
+    await expect(logout()).rejects.toThrow();
+    expect(useUserStore.getState().token).toBeNull();
   });
 });
 

@@ -167,6 +167,14 @@ export const handlers = [
     return apiOk(MOCK_AUTH);
   }),
 
+  // 退出登录：需要 Bearer 凭证，没带则 401
+  http.post(`${API_BASE}/auth/logout`, ({ request }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    return apiOk(null);
+  }),
+
   // 查询用户 Bot 列表
   http.get(`${API_BASE}/bots`, ({ request }) => {
     if (!request.headers.get('authorization')) {
