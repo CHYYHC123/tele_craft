@@ -164,3 +164,43 @@ export interface UpdateBotParams {
   /** About 简介，最长 120 个字符，传空字符串可清空 */
   shortDescription?: string;
 }
+
+/** 键盘按钮里的跳转按钮 */
+export interface KeyboardButtonLink {
+  name: string;
+  url: string;
+}
+
+/**
+ * Bot 输入框下方的键盘按钮（Reply Keyboard）。
+ * text 是键盘上显示的文字，也是用户点击后 Telegram 发回给 Bot 的文本；remark 只是后台备注。
+ */
+export interface KeyboardButton {
+  id: string;
+  /** 1 到 64，同一 Bot 内唯一，不能以 / 开头 */
+  text: string;
+  /** 最长 256，可为空串 */
+  remark: string;
+  messageType: 'graphic' | 'text' | 'link';
+  imageUrl: string | null;
+  /** 最长 1024，只允许 b、i、a、br；link 类型不保存正文 */
+  description: string;
+  /** link 类型的外链；其它类型为 null */
+  linkUrl: string | null;
+  buttonsEnabled: boolean;
+  /** 最多 10 个 */
+  buttons: KeyboardButtonLink[];
+}
+
+/** 键盘布局：外层是行，内层是该行从左到右的按钮；未配置时 rows 为空数组 */
+export interface KeyboardLayout {
+  rows: KeyboardButton[][];
+}
+
+/** 新增/修改键盘按钮的请求体 */
+export type KeyboardButtonParams = Omit<KeyboardButton, 'id'>;
+
+/** 上传键盘按钮配图的返回：只有公网地址，不会改动已保存的按钮 */
+export interface KeyboardImage {
+  imageUrl: string;
+}

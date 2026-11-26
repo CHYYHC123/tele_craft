@@ -1,56 +1,143 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http } from 'msw';
 
+import { resetMockBots, resetMockKeyboards } from '@/mocks/handlers';
+import { apiFail, apiOk } from '@/mocks/response';
+import { server } from '@/mocks/server';
+import { useBotStore } from '@/store/bot';
+import { useUserStore } from '@/store/user';
+import type { KeyboardButton, KeyboardButtonParams } from '@/types/bot';
+import { DEFAULT_MESSAGE } from '@/utils/message-config';
 import ButtonMenu from '@/views/content/button-menu';
 import { BUTTON_MENU_MAX_COUNT } from '@/views/content/button-menu/constants';
 
-const addButton = () => userEvent.click(screen.getByRole('button', { name: 'Add a button' }));
+const API = import.meta.env.VITE_API_BASE_URL ?? '/api';
+const BOT = { id: 'b1', telegramBotId: '7', username: 'shop_bot', displayName: 'Bit Store Card' };
+const EMPTY_TEXT = /No custom menu configured yet/;
+
+const button = (id: string, patch: Partial<KeyboardButton> = {}): KeyboardButton => ({
+  id,
+  text: `Button ${id}`,
+  remark: '',
+  messageType: 'text',
+  imageUrl: null,
+  description: 'Hello',
+  linkUrl: null,
+  buttonsEnabled: false,
+  buttons: [],
+  ...patch,
+});
+
+/** 空状态右侧卡片的新增按钮 */
+const addFromCard = () => userEvent.click(screen.getByRole('button', { name: 'Add Button' }));
+/** 手机预览里的新增入口 */
+const addFromPreview = () => userEvent.click(screen.getByRole('button', { name: 'Add a button' }));
+
+const nameInput = () => screen.getByRole('textbox', { name: 'Menu name' });
+const rowCount = () => screen.queryAllByRole('group', { name: 'Menu row' }).length;
+const wrapperOf = (name: string) => screen.getByRole('button', { name }).parentElement!;
+
+function renderPage() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ButtonMenu />
+    </QueryClientProvider>,
+  );
+}
+
+/** 把 source 拖到 target 上，使两者并排 */
+function drag(source: HTMLElement, target: HTMLElement) {
+  const dataTransfer = { setData: () => {}, effectAllowed: '' };
+  fireEvent.dragStart(source, { dataTransfer });
+  fireEvent.dragOver(target, { dataTransfer });
+  fireEvent.drop(target, { dataTransfer });
+}
 
 describe('ButtonMenu', () => {
-  it('初始没有按钮时显示空状态', () => {
-    render(<ButtonMenu />);
+  beforeEach(() => {
+    useUserStore.getState().setAuth({
+      accessToken: 'jwt-keyboard',
+      expiresIn: 3600,
+      user: { id: 'u', telegramId: '1', firstName: '', lastName: '', username: '' },
+    });
+    resetMockBots([BOT]);
+    resetMockKeyboards();
+    useBotStore.getState().setSelectedBotId(BOT.id);
+  });
 
-    expect(screen.getByText(/You have not added a custom menu/)).toBeInTheDocument();
+  afterEach(() => {
+    useUserStore.getState().logout();
+    useBotStore.getState().setSelectedBotId(null);
+    resetMockKeyboards();
+  });
+
+  it('初始没有按钮时显示空状态', async () => {
+    renderPage();
+
+    expect(await screen.findByText(EMPTY_TEXT)).toBeInTheDocument();
     expect(screen.queryByText('Menu information')).not.toBeInTheDocument();
+    expect(screen.getByText(BOT.displayName)).toBeInTheDocument();
+  });
+
+  it('读取已保存的布局并按行展示，默认选中第一个', async () => {
+    resetMockKeyboards({
+      b1: [
+        [button('1', { text: 'First' }), button('2', { text: 'Second' })],
+        [button('3', { text: 'Third' })],
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'First', pressed: true })).toBeInTheDocument();
+    expect(rowCount()).toBe(2);
+    expect(nameInput()).toHaveValue('First');
   });
 
   it('新增按钮后选中它，并显示消息配置', async () => {
-    render(<ButtonMenu />);
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
 
-    await addButton();
+    await addFromCard();
 
     expect(screen.getByRole('button', { name: 'Button', pressed: true })).toBeInTheDocument();
     expect(screen.getByText('Menu information')).toBeInTheDocument();
-    expect(screen.queryByText(/You have not added a custom menu/)).not.toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_TEXT)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save and publish' })).toBeDisabled();
   });
 
   it('填写菜单名称后，预览里的按钮同步显示', async () => {
-    render(<ButtonMenu />);
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
 
-    await addButton();
-    await userEvent.type(screen.getByRole('textbox', { name: 'Menu name' }), 'Create Card');
+    await addFromCard();
+    await userEvent.type(nameInput(), 'Create Card');
 
     expect(screen.getByRole('button', { name: 'Create Card' })).toBeInTheDocument();
   });
 
   it('切换按钮时，右侧显示各自的配置', async () => {
-    render(<ButtonMenu />);
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
 
-    await addButton();
-    await userEvent.type(screen.getByRole('textbox', { name: 'Menu name' }), 'First');
-    await addButton();
+    await addFromCard();
+    await userEvent.type(nameInput(), 'First');
+    await addFromPreview();
 
-    expect(screen.getByRole('textbox', { name: 'Menu name' })).toHaveValue('');
+    expect(nameInput()).toHaveValue('');
 
     await userEvent.click(screen.getByRole('button', { name: 'First' }));
 
-    expect(screen.getByRole('textbox', { name: 'Menu name' })).toHaveValue('First');
+    expect(nameInput()).toHaveValue('First');
   });
 
   it('消息类型切换后，显示对应的配置项', async () => {
-    render(<ButtonMenu />);
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
 
-    await addButton();
+    await addFromCard();
     expect(screen.getByText('Click to upload')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('radio', { name: 'Text message' }));
@@ -63,9 +150,10 @@ describe('ButtonMenu', () => {
   });
 
   it('开启操作按钮后可以填写名称', async () => {
-    render(<ButtonMenu />);
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
 
-    await addButton();
+    await addFromCard();
     expect(screen.queryByLabelText('Button name')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('switch', { name: 'Action button' }));
@@ -73,55 +161,230 @@ describe('ButtonMenu', () => {
     expect(screen.getByLabelText('Button name')).toBeInTheDocument();
   });
 
-  it('删除按钮后回到空状态', async () => {
-    render(<ButtonMenu />);
+  it('删除未保存的草稿不发请求，删完回到空状态', async () => {
+    let deleted = false;
+    server.use(
+      http.delete(`${API}/bots/b1/keyboard/buttons/:buttonId`, () => {
+        deleted = true;
+        return apiOk(null);
+      }),
+    );
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
 
-    await addButton();
+    await addFromCard();
     await userEvent.click(screen.getByRole('button', { name: 'Remove Button' }));
 
-    expect(screen.getByText(/You have not added a custom menu/)).toBeInTheDocument();
+    expect(screen.getByText(EMPTY_TEXT)).toBeInTheDocument();
+    expect(deleted).toBe(false);
   });
 
-  it('删除选中的按钮后，自动选中剩下的第一个', async () => {
-    render(<ButtonMenu />);
+  it('达到上限后隐藏预览里的新增入口', async () => {
+    resetMockKeyboards({
+      b1: Array.from({ length: BUTTON_MENU_MAX_COUNT }, (_, index) => [button(`k${index}`)]),
+    });
+    renderPage();
 
-    await addButton();
-    await userEvent.type(screen.getByRole('textbox', { name: 'Menu name' }), 'First');
-    await addButton();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Button' }));
-
-    expect(screen.getByRole('button', { name: 'First', pressed: true })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Menu name' })).toHaveValue('First');
-  });
-
-  it('达到上限后隐藏新增按钮', async () => {
-    render(<ButtonMenu />);
-
-    for (let i = 0; i < BUTTON_MENU_MAX_COUNT; i++) {
-      await addButton();
-    }
-
+    expect(await screen.findByRole('button', { name: 'Button k0' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add a button' })).not.toBeInTheDocument();
   });
 
-  it('把一个按钮拖到另一个按钮上，两者并排在同一行', async () => {
-    render(<ButtonMenu />);
+  it('保存新按钮时 POST，名称去掉首尾空格', async () => {
+    let body: KeyboardButtonParams | undefined;
+    server.use(
+      http.post(`${API}/bots/b1/keyboard/buttons`, async ({ request }) => {
+        body = (await request.json()) as KeyboardButtonParams;
+        return apiOk({ id: 'k-new', ...body });
+      }),
+    );
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
 
-    await addButton();
-    await userEvent.type(screen.getByRole('textbox', { name: 'Menu name' }), 'First');
-    await addButton();
-    await userEvent.type(screen.getByRole('textbox', { name: 'Menu name' }), 'Second');
+    await addFromCard();
+    await userEvent.type(nameInput(), ' Create Card ');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Menu description' }), 'note');
+    await userEvent.click(screen.getByRole('radio', { name: 'Text message' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save and publish' }));
 
-    expect(screen.getAllByRole('group', { name: 'Menu row' })).toHaveLength(2);
+    await waitFor(() => expect(body?.text).toBe('Create Card'));
+    expect(body).toMatchObject({
+      remark: 'note',
+      messageType: 'text',
+      imageUrl: null,
+      description: DEFAULT_MESSAGE,
+      linkUrl: null,
+      buttonsEnabled: false,
+      buttons: [],
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Create Card', pressed: true }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: 'Save and publish' })).toBeDisabled();
+  });
 
-    const dataTransfer = { setData: () => {}, effectAllowed: '' };
-    const dragged = screen.getByRole('button', { name: 'Second' }).parentElement!;
-    const target = screen.getByRole('button', { name: 'First' }).parentElement!;
+  it('不能以 / 开头，也不能和已有按钮重名', async () => {
+    resetMockKeyboards({ b1: [[button('1', { text: 'First' })]] });
+    renderPage();
+    await screen.findByRole('button', { name: 'First' });
 
-    fireEvent.dragStart(dragged, { dataTransfer });
-    fireEvent.dragOver(target, { dataTransfer });
-    fireEvent.drop(target, { dataTransfer });
+    await addFromPreview();
+    await userEvent.click(screen.getByRole('radio', { name: 'Text message' }));
+    await userEvent.type(nameInput(), '/start');
+    expect(screen.getByRole('button', { name: 'Save and publish' })).toBeDisabled();
 
-    expect(screen.getAllByRole('group', { name: 'Menu row' })).toHaveLength(1);
+    await userEvent.clear(nameInput());
+    await userEvent.type(nameInput(), 'First');
+    expect(screen.getByRole('button', { name: 'Save and publish' })).toBeDisabled();
+
+    await userEvent.type(nameInput(), '2');
+    expect(screen.getByRole('button', { name: 'Save and publish' })).toBeEnabled();
+  });
+
+  it('保存失败时草稿保留，可以继续重试', async () => {
+    server.use(
+      http.post(`${API}/bots/b1/keyboard/buttons`, () =>
+        apiFail('BAD_REQUEST', '按钮名称已存在', 400),
+      ),
+    );
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
+
+    await addFromCard();
+    await userEvent.type(nameInput(), 'Dup');
+    await userEvent.click(screen.getByRole('radio', { name: 'Text message' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save and publish' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save and publish' })).toBeEnabled(),
+    );
+    expect(nameInput()).toHaveValue('Dup');
+  });
+
+  it('修改已保存的按钮时 PUT，Cancel 恢复到已保存内容', async () => {
+    resetMockKeyboards({ b1: [[button('1', { text: 'First' })]] });
+    let body: KeyboardButtonParams | undefined;
+    server.use(
+      http.put(`${API}/bots/b1/keyboard/buttons/1`, async ({ request }) => {
+        body = (await request.json()) as KeyboardButtonParams;
+        return apiOk({ id: '1', ...body });
+      }),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: 'First' });
+
+    await userEvent.type(nameInput(), ' X');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(nameInput()).toHaveValue('First');
+
+    await userEvent.type(nameInput(), '2');
+    await userEvent.click(screen.getByRole('button', { name: 'Save and publish' }));
+
+    await waitFor(() => expect(body?.text).toBe('First2'));
+    expect(await screen.findByRole('button', { name: 'First2' })).toBeInTheDocument();
+  });
+
+  it('删除已保存的按钮时 DELETE，成功后才移除', async () => {
+    resetMockKeyboards({
+      b1: [[button('1', { text: 'First' })], [button('2', { text: 'Second' })]],
+    });
+    let deleted: string | undefined;
+    server.use(
+      http.delete(`${API}/bots/b1/keyboard/buttons/:buttonId`, ({ params }) => {
+        deleted = String(params.buttonId);
+        return apiOk(null);
+      }),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: 'First' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove First' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'First' })).toBeNull());
+    expect(deleted).toBe('1');
+    expect(screen.getByRole('button', { name: 'Second', pressed: true })).toBeInTheDocument();
+  });
+
+  it('删除失败时按钮保留', async () => {
+    resetMockKeyboards({ b1: [[button('1', { text: 'First' })]] });
+    server.use(
+      http.delete(`${API}/bots/b1/keyboard/buttons/1`, () =>
+        apiFail('NOT_FOUND', '按钮不存在', 404),
+      ),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: 'First' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove First' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove First' })).toBeEnabled());
+    expect(screen.getByRole('button', { name: 'First' })).toBeInTheDocument();
+  });
+
+  it('把一个按钮拖到另一个按钮上并排，并 PUT 保存后的布局', async () => {
+    resetMockKeyboards({
+      b1: [[button('1', { text: 'First' })], [button('2', { text: 'Second' })]],
+    });
+    let body: { rows: string[][] } | undefined;
+    server.use(
+      http.put(`${API}/bots/b1/keyboard/layout`, async ({ request }) => {
+        body = (await request.json()) as { rows: string[][] };
+        return apiOk({ rows: [[button('1', { text: 'First' }), button('2', { text: 'Second' })]] });
+      }),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: 'First' });
+    expect(rowCount()).toBe(2);
+
+    drag(wrapperOf('Second'), wrapperOf('First'));
+
+    await waitFor(() => expect(body).toEqual({ rows: [['1', '2']] }));
+    expect(rowCount()).toBe(1);
+  });
+
+  it('布局保存失败时回滚到拖拽前', async () => {
+    resetMockKeyboards({
+      b1: [[button('1', { text: 'First' })], [button('2', { text: 'Second' })]],
+    });
+    let called = false;
+    server.use(
+      http.put(`${API}/bots/b1/keyboard/layout`, () => {
+        called = true;
+        return apiFail('BAD_REQUEST', '提交的按钮与现有按钮不一致，请刷新后重试', 400);
+      }),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: 'First' });
+
+    drag(wrapperOf('Second'), wrapperOf('First'));
+
+    await waitFor(() => expect(called).toBe(true));
+    await waitFor(() => expect(rowCount()).toBe(2));
+  });
+
+  it('未保存的草稿固定在最后，不能被拖拽', async () => {
+    resetMockKeyboards({
+      b1: [[button('1', { text: 'First' })]],
+    });
+    let called = false;
+    server.use(
+      http.put(`${API}/bots/b1/keyboard/layout`, () => {
+        called = true;
+        return apiOk({ rows: [] });
+      }),
+    );
+    renderPage();
+    await screen.findByRole('button', { name: 'First' });
+
+    await addFromPreview();
+    await userEvent.type(nameInput(), 'Draft');
+    expect(wrapperOf('Draft')).toHaveAttribute('draggable', 'false');
+
+    drag(wrapperOf('First'), wrapperOf('Draft'));
+    drag(wrapperOf('Draft'), wrapperOf('First'));
+
+    expect(rowCount()).toBe(2);
+    expect(called).toBe(false);
   });
 });

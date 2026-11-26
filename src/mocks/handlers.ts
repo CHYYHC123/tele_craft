@@ -7,6 +7,10 @@ import type {
   BotMenuParams,
   BotStats,
   BotWelcome,
+  KeyboardButton,
+  KeyboardButtonParams,
+  KeyboardImage,
+  KeyboardLayout,
   KeywordReplyParams,
   KeywordReplyRule,
   StartMessage,
@@ -193,6 +197,106 @@ function checkMenuBody(
     value: {
       command,
       commandDescription,
+      messageType,
+      imageUrl: messageType === 'graphic' ? imageUrl : null,
+      description: messageType === 'link' ? '' : description,
+      linkUrl: messageType === 'link' ? linkUrl : null,
+      buttonsEnabled: messageType === 'link' ? false : Boolean(body.buttonsEnabled),
+      buttons:
+        messageType === 'link'
+          ? []
+          : buttons.map((button) => ({ name: button.name, url: button.url })),
+    },
+  };
+}
+
+/** 键盘按钮（内存态，按 bot id 存成按行分组的二维数组；没有记录表示未配置） */
+const mockKeyboards = new Map<string, KeyboardButton[][]>();
+/** 这个 Bot 上传过、还没被保存进按钮的键盘配图地址 */
+const mockKeyboardImages = new Map<string, Set<string>>();
+
+const MOCK_KEYBOARD_LIMIT = 30;
+const MOCK_KEYBOARD_ROW_LIMIT = 3;
+
+/** 测试用：重置/预置 mock 键盘按钮 */
+export function resetMockKeyboards(keyboards: Record<string, KeyboardButton[][]> = {}) {
+  mockKeyboards.clear();
+  mockKeyboardImages.clear();
+  Object.entries(keyboards).forEach(([id, rows]) => mockKeyboards.set(id, rows));
+}
+
+/**
+ * 校验键盘按钮请求体。格式不合法返回 400 VALIDATION_ERROR，
+ * 名称重复或图片不属于这个 Bot 返回 400 BAD_REQUEST，通过则返回规整后的值。
+ */
+function checkKeyboardBody(
+  body: Partial<KeyboardButtonParams> | null,
+  others: KeyboardButton[],
+  botId: string,
+  currentImageUrl: string | null,
+): { value: KeyboardButtonParams } | { error: Response } {
+  const validationError = () => ({
+    error: apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+      { path: ['button'], message: 'Invalid' },
+    ]),
+  });
+  if (!body) return validationError();
+
+  const text = typeof body.text === 'string' ? body.text.trim() : '';
+  if (!text || text.length > 64 || text.startsWith('/')) return validationError();
+
+  const remark = typeof body.remark === 'string' ? body.remark.trim() : '';
+  if (remark.length > 256) return validationError();
+
+  const { messageType } = body;
+  if (messageType !== 'graphic' && messageType !== 'text' && messageType !== 'link') {
+    return validationError();
+  }
+
+  const description = typeof body.description === 'string' ? body.description : '';
+  if (
+    description.length > 1024 ||
+    (description.match(HTML_TAG) ?? []).some((tag) => !ALLOWED_TAG.test(tag))
+  ) {
+    return validationError();
+  }
+
+  const buttons = Array.isArray(body.buttons) ? body.buttons : [];
+  if (
+    buttons.length > 10 ||
+    buttons.some(
+      (button) => !button?.name || button.name.length > 64 || !/^https?:\/\//.test(button.url),
+    )
+  ) {
+    return validationError();
+  }
+
+  const imageUrl = body.imageUrl ?? null;
+  if (messageType === 'graphic' && !imageUrl) return validationError();
+  if (messageType === 'text' && description.trim() === '') return validationError();
+
+  const linkUrl = typeof body.linkUrl === 'string' ? body.linkUrl.trim() : null;
+  if (messageType === 'link' && (!linkUrl || !/^https?:\/\//.test(linkUrl))) {
+    return validationError();
+  }
+
+  if (others.some((item) => item.text === text)) {
+    return { error: apiFail('BAD_REQUEST', '按钮名称已存在', 400) };
+  }
+
+  const uploaded = mockKeyboardImages.get(botId) ?? new Set<string>();
+  const imageAllowed =
+    imageUrl === null ||
+    uploaded.has(imageUrl) ||
+    (currentImageUrl !== null && imageUrl === currentImageUrl);
+  if (messageType === 'graphic' && !imageAllowed) {
+    return { error: apiFail('BAD_REQUEST', 'imageUrl 不是这个 Bot 上传过的图片', 400) };
+  }
+
+  return {
+    value: {
+      text,
+      remark,
       messageType,
       imageUrl: messageType === 'graphic' ? imageUrl : null,
       description: messageType === 'link' ? '' : description,
@@ -780,6 +884,158 @@ export const handlers = [
     mockMenus.set(
       id,
       menus.filter((item) => item.id !== menuId),
+    );
+    return apiOk(null);
+  }),
+
+  // 读取键盘按钮布局（未配置时 rows 是空数组）
+  http.get(`${API_BASE}/bots/:id/keyboard`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const model: KeyboardLayout = { rows: mockKeyboards.get(String(params.id)) ?? [] };
+    return apiOk(model);
+  }),
+
+  // 上传键盘按钮配图：只返回公网地址，不改已保存的按钮
+  http.post(`${API_BASE}/bots/:id/keyboard/image`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const form = await request.formData().catch(() => null);
+    const file = form?.get('file');
+    if (
+      !file ||
+      typeof file === 'string' ||
+      !MOCK_IMAGE_TYPES.includes(file.type) ||
+      file.size > MOCK_IMAGE_MAX_BYTES
+    ) {
+      return apiFail('BAD_REQUEST', '只支持 PNG/JPG，且不超过 2MB', 400);
+    }
+    const model: KeyboardImage = {
+      imageUrl: `${MOCK_BLOB_PREFIX}${id}/keyboard/${file.name}`,
+    };
+    const uploaded = mockKeyboardImages.get(id) ?? new Set<string>();
+    uploaded.add(model.imageUrl);
+    mockKeyboardImages.set(id, uploaded);
+    return apiOk(model);
+  }),
+
+  // 调整键盘布局：必须带全部按钮，每个只出现一次，每行 1-3 个
+  http.put(`${API_BASE}/bots/:id/keyboard/layout`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const body = (await request.json().catch(() => null)) as { rows?: unknown } | null;
+    const rows = body?.rows;
+    if (
+      !Array.isArray(rows) ||
+      rows.some(
+        (row) =>
+          !Array.isArray(row) ||
+          row.length === 0 ||
+          row.length > MOCK_KEYBOARD_ROW_LIMIT ||
+          row.some((item) => typeof item !== 'string'),
+      )
+    ) {
+      return apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+        { path: ['rows'], message: 'Invalid' },
+      ]);
+    }
+    const current = (mockKeyboards.get(id) ?? []).flat();
+    const submitted = (rows as string[][]).flat();
+    if (
+      submitted.length !== current.length ||
+      new Set(submitted).size !== submitted.length ||
+      submitted.some((buttonId) => !current.some((item) => item.id === buttonId))
+    ) {
+      return apiFail('BAD_REQUEST', '提交的按钮与现有按钮不一致，请刷新后重试', 400);
+    }
+    const layout = (rows as string[][]).map((row) =>
+      row.map((buttonId) => current.find((item) => item.id === buttonId) as KeyboardButton),
+    );
+    mockKeyboards.set(id, layout);
+    return apiOk<KeyboardLayout>({ rows: layout });
+  }),
+
+  // 新增键盘按钮，自成一行放在最后
+  http.post(`${API_BASE}/bots/:id/keyboard/buttons`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const rows = mockKeyboards.get(id) ?? [];
+    const body = (await request.json().catch(() => null)) as Partial<KeyboardButtonParams> | null;
+    const checked = checkKeyboardBody(body, rows.flat(), id, null);
+    if ('error' in checked) return checked.error;
+    if (rows.flat().length >= MOCK_KEYBOARD_LIMIT) {
+      return apiFail('BAD_REQUEST', '按钮已有 30 个', 400);
+    }
+    const button: KeyboardButton = { id: crypto.randomUUID(), ...checked.value };
+    mockKeyboards.set(id, [...rows, [button]]);
+    return apiOk(button);
+  }),
+
+  // 修改键盘按钮内容，位置不变
+  http.put(`${API_BASE}/bots/:id/keyboard/buttons/:buttonId`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    const buttonId = String(params.buttonId);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const rows = mockKeyboards.get(id) ?? [];
+    const current = rows.flat().find((item) => item.id === buttonId);
+    if (!current) return apiFail('NOT_FOUND', '按钮不存在', 404);
+    const body = (await request.json().catch(() => null)) as Partial<KeyboardButtonParams> | null;
+    const checked = checkKeyboardBody(
+      body,
+      rows.flat().filter((item) => item.id !== buttonId),
+      id,
+      current.imageUrl,
+    );
+    if ('error' in checked) return checked.error;
+    const button: KeyboardButton = { id: buttonId, ...checked.value };
+    mockKeyboards.set(
+      id,
+      rows.map((row) => row.map((item) => (item.id === buttonId ? button : item))),
+    );
+    return apiOk(button);
+  }),
+
+  // 删除键盘按钮：右边的按钮左移，空行消失；成功 model 为 null
+  http.delete(`${API_BASE}/bots/:id/keyboard/buttons/:buttonId`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    const buttonId = String(params.buttonId);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const rows = mockKeyboards.get(id) ?? [];
+    if (!rows.flat().some((item) => item.id === buttonId)) {
+      return apiFail('NOT_FOUND', '按钮不存在', 404);
+    }
+    mockKeyboards.set(
+      id,
+      rows.map((row) => row.filter((item) => item.id !== buttonId)).filter((row) => row.length > 0),
     );
     return apiOk(null);
   }),

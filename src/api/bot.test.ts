@@ -2,10 +2,13 @@ import { http } from 'msw';
 import { describe, it, expect } from 'vitest';
 import {
   addBot,
+  createBotKeyboardButton,
   createBotMenu,
+  deleteBotKeyboardButton,
   deleteBotMenu,
   exportBotSubscribers,
   getBotAutoReply,
+  getBotKeyboard,
   getBotMenus,
   getBotStats,
   getBotSubscribers,
@@ -14,16 +17,19 @@ import {
   getBots,
   updateBot,
   updateBotAutoReply,
+  updateBotKeyboardButton,
+  updateBotKeyboardLayout,
   updateBotMenu,
   updateBotStartMessage,
   updateBotWelcome,
+  uploadBotKeyboardImage,
   uploadBotMenuImage,
   uploadBotStartMessageImage,
 } from '@/api/bot';
 import { apiFail, apiOk } from '@/mocks/response';
 import { server } from '@/mocks/server';
 import { useUserStore } from '@/store/user';
-import type { BotMenuParams, UpdateStartMessageParams } from '@/types/bot';
+import type { BotMenuParams, KeyboardButtonParams, UpdateStartMessageParams } from '@/types/bot';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -413,5 +419,108 @@ describe('api/bot', () => {
     login();
     server.use(http.delete(`${API}/bots/b1/menus/m1`, () => apiOk(null)));
     await expect(deleteBotMenu('b1', 'm1')).resolves.toBeNull();
+  });
+
+  it('getBotKeyboard：带 Bearer，解包为 { rows }，未配置时 rows 是空数组', async () => {
+    login();
+    let authorization: string | null = null;
+    server.use(
+      http.get(`${API}/bots/b1/keyboard`, ({ request }) => {
+        authorization = request.headers.get('authorization');
+        return apiOk({ rows: [] });
+      }),
+    );
+    await expect(getBotKeyboard('b1')).resolves.toEqual({ rows: [] });
+    expect(authorization).toBe('Bearer jwt-bot');
+  });
+
+  it('uploadBotKeyboardImage：multipart 文件字段名是 file，返回公网地址', async () => {
+    login();
+    let uploadedName: string | undefined;
+    server.use(
+      http.post(`${API}/bots/b1/keyboard/image`, async ({ request }) => {
+        const form = await request.formData();
+        uploadedName = (form.get('file') as File | null)?.name;
+        return apiOk({ imageUrl: 'https://example.blob.upstash.io/bots/b1/keyboard/banner.jpg' });
+      }),
+    );
+    const file = new File(['png'], 'banner.png', { type: 'image/png' });
+    await expect(uploadBotKeyboardImage('b1', file)).resolves.toEqual({
+      imageUrl: 'https://example.blob.upstash.io/bots/b1/keyboard/banner.jpg',
+    });
+    expect(uploadedName).toBe('banner.png');
+  });
+
+  it('createBotKeyboardButton / updateBotKeyboardButton：请求体是按钮内容', async () => {
+    login();
+    const bodies: unknown[] = [];
+    const params = {
+      text: 'Create Card',
+      remark: '',
+      messageType: 'text',
+      imageUrl: null,
+      description: 'Hi',
+      linkUrl: null,
+      buttonsEnabled: false,
+      buttons: [],
+    } satisfies KeyboardButtonParams;
+    server.use(
+      http.post(`${API}/bots/b1/keyboard/buttons`, async ({ request }) => {
+        bodies.push(await request.json());
+        return apiOk({ id: 'k1', ...params });
+      }),
+      http.put(`${API}/bots/b1/keyboard/buttons/k1`, async ({ request }) => {
+        bodies.push(await request.json());
+        return apiOk({ id: 'k1', ...params });
+      }),
+    );
+    await expect(createBotKeyboardButton('b1', params)).resolves.toEqual({ id: 'k1', ...params });
+    await expect(updateBotKeyboardButton('b1', 'k1', params)).resolves.toEqual({
+      id: 'k1',
+      ...params,
+    });
+    expect(bodies).toEqual([params, params]);
+  });
+
+  it('createBotKeyboardButton：名称不合法（400）时 reject', async () => {
+    login();
+    server.use(
+      http.post(`${API}/bots/b1/keyboard/buttons`, () =>
+        apiFail('VALIDATION_ERROR', '参数校验失败', 400),
+      ),
+    );
+    await expect(
+      createBotKeyboardButton('b1', {
+        text: '/start',
+        remark: '',
+        messageType: 'text',
+        imageUrl: null,
+        description: 'Hi',
+        linkUrl: null,
+        buttonsEnabled: false,
+        buttons: [],
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('deleteBotKeyboardButton：成功时解包为 null', async () => {
+    login();
+    server.use(http.delete(`${API}/bots/b1/keyboard/buttons/k1`, () => apiOk(null)));
+    await expect(deleteBotKeyboardButton('b1', 'k1')).resolves.toBeNull();
+  });
+
+  it('updateBotKeyboardLayout：PUT 请求体是 { rows }，返回保存后的布局', async () => {
+    login();
+    let body: unknown;
+    server.use(
+      http.put(`${API}/bots/b1/keyboard/layout`, async ({ request }) => {
+        body = await request.json();
+        return apiOk({ rows: [] });
+      }),
+    );
+    await expect(updateBotKeyboardLayout('b1', [['k1', 'k2'], ['k3']])).resolves.toEqual({
+      rows: [],
+    });
+    expect(body).toEqual({ rows: [['k1', 'k2'], ['k3']] });
   });
 });

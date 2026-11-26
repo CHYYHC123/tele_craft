@@ -5,6 +5,10 @@ import type {
   Bot,
   BotStats,
   BotWelcome,
+  KeyboardButton,
+  KeyboardButtonParams,
+  KeyboardImage,
+  KeyboardLayout,
   KeywordReplyParams,
   KeywordReplyRule,
   BotMenu,
@@ -91,6 +95,32 @@ export const updateBotMenu = (id: string, menuId: string, data: BotMenuParams) =
 /** 删除一条命令菜单；成功时 model 为 null，这项的配图一并删除 */
 export const deleteBotMenu = (id: string, menuId: string) =>
   http.delete<null>(`/bots/${id}/menus/${menuId}`);
+
+/** 读取键盘按钮布局；按行分组，未配置时 rows 为空数组 */
+export const getBotKeyboard = (id: string) => http.get<KeyboardLayout>(`/bots/${id}/keyboard`);
+
+/** 上传键盘按钮配图（PNG/JPG，≤2MB，≤640×360），multipart 字段名 file；不改已保存的按钮 */
+export const uploadBotKeyboardImage = (id: string, file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return http.post<KeyboardImage>(`/bots/${id}/keyboard/image`, form);
+};
+
+/** 新增键盘按钮，自成一行放在最后 */
+export const createBotKeyboardButton = (id: string, data: KeyboardButtonParams) =>
+  http.post<KeyboardButton>(`/bots/${id}/keyboard/buttons`, data);
+
+/** 修改键盘按钮内容，位置不变，请求体与新增相同 */
+export const updateBotKeyboardButton = (id: string, buttonId: string, data: KeyboardButtonParams) =>
+  http.put<KeyboardButton>(`/bots/${id}/keyboard/buttons/${buttonId}`, data);
+
+/** 删除键盘按钮；成功时 model 为 null，右边的按钮左移，空行消失 */
+export const deleteBotKeyboardButton = (id: string, buttonId: string) =>
+  http.delete<null>(`/bots/${id}/keyboard/buttons/${buttonId}`);
+
+/** 提交整份键盘布局：外层是行，内层是该行从左到右的按钮 id；必须带全部按钮，每行 1-3 个 */
+export const updateBotKeyboardLayout = (id: string, rows: string[][]) =>
+  http.put<KeyboardLayout>(`/bots/${id}/keyboard/layout`, { rows });
 
 /** 首页四张统计卡的数字 */
 export const getBotStats = (id: string) => http.get<BotStats>(`/bots/${id}/stats`);

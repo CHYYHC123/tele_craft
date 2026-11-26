@@ -7,13 +7,13 @@ import type { DropPlacement, MenuButtonItem, MenuRows } from '@/views/content/bu
 
 interface MenuPreviewProps {
   rows: MenuRows;
-  selectedId: number | null;
+  selectedId: string | null;
   canAdd: boolean;
-  onSelect: (id: number) => void;
+  onSelect: (id: string) => void;
   onAdd: () => void;
-  onRemove: (id: number) => void;
-  onMove: (dragId: number, targetId: number, placement: DropPlacement) => void;
-  onMoveToNewRow: (dragId: number) => void;
+  onRemove: (id: string) => void;
+  onMove: (dragId: string, targetId: string, placement: DropPlacement) => void;
+  onMoveToNewRow: (dragId: string) => void;
 }
 
 /** 手机输入栏下方的自定义按钮键盘（输入栏与底部横条由 PhonePreview 提供） */
@@ -27,7 +27,7 @@ const MenuPreview: FC<MenuPreviewProps> = ({
   onMove,
   onMoveToNewRow,
 }) => {
-  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const allowDrop = (event: DragEvent) => {
     if (draggingId !== null) event.preventDefault();
@@ -70,15 +70,16 @@ const MenuPreview: FC<MenuPreviewProps> = ({
             return (
               <div
                 key={item.id}
-                draggable
+                // 未保存的草稿固定在最后，不能拖，也不能作为落点
+                draggable={!item.isNew}
                 onDragStart={(event) => {
                   event.dataTransfer.setData('text/plain', String(item.id));
                   event.dataTransfer.effectAllowed = 'move';
                   setDraggingId(item.id);
                 }}
                 onDragEnd={() => setDraggingId(null)}
-                onDragOver={allowDrop}
-                onDrop={(event) => handleDropOnButton(event, row, item)}
+                onDragOver={item.isNew ? undefined : allowDrop}
+                onDrop={item.isNew ? undefined : (event) => handleDropOnButton(event, row, item)}
                 className={cn(
                   'flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border bg-white px-3 py-2 shadow-2xs transition',
                   selected
@@ -88,7 +89,10 @@ const MenuPreview: FC<MenuPreviewProps> = ({
                 )}
               >
                 <GripVertical
-                  className="size-3 shrink-0 cursor-grab text-slate-300"
+                  className={cn(
+                    'size-3 shrink-0 text-slate-300',
+                    item.isNew ? 'invisible' : 'cursor-grab',
+                  )}
                   aria-hidden="true"
                 />
                 <button
@@ -119,9 +123,9 @@ const MenuPreview: FC<MenuPreviewProps> = ({
           onClick={onAdd}
           onDragOver={allowDrop}
           onDrop={handleDropOnAdd}
-          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-emerald-400 bg-emerald-50/70 py-2.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 active:scale-[0.98]"
+          className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-white py-2.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 active:scale-[0.98]"
         >
-          <Plus className="size-4" strokeWidth={2.2} aria-hidden="true" />
+          <Plus className="size-4" strokeWidth={2} aria-hidden="true" />
           Add a button
         </button>
       ) : null}

@@ -4,11 +4,14 @@ import { toast } from 'sonner';
 import {
   addBot,
   addBotKeywordReply,
+  createBotKeyboardButton,
   createBotMenu,
+  deleteBotKeyboardButton,
   deleteBotKeywordReply,
   deleteBotMenu,
   exportBotSubscribers,
   getBotAutoReply,
+  getBotKeyboard,
   getBotMenus,
   getBotStats,
   getBotSubscribers,
@@ -17,10 +20,13 @@ import {
   getBots,
   updateBot,
   updateBotAutoReply,
+  updateBotKeyboardButton,
+  updateBotKeyboardLayout,
   updateBotKeywordReply,
   updateBotMenu,
   updateBotStartMessage,
   updateBotWelcome,
+  uploadBotKeyboardImage,
   uploadBotMenuImage,
   uploadBotStartMessageImage,
 } from '@/api/bot';
@@ -31,6 +37,8 @@ import type {
   AutoReply,
   BotMenu,
   BotMenuParams,
+  KeyboardButtonParams,
+  KeyboardLayout,
   KeywordReplyParams,
   SubscribersParams,
   UpdateAutoReplyParams,
@@ -48,6 +56,8 @@ export const botStartMessageQueryKey = (botId: string | undefined) =>
 export const botAutoReplyQueryKey = (botId: string | undefined) =>
   ['bots', botId, 'auto-reply'] as const;
 export const botMenusQueryKey = (botId: string | undefined) => ['bots', botId, 'menus'] as const;
+export const botKeyboardQueryKey = (botId: string | undefined) =>
+  ['bots', botId, 'keyboard'] as const;
 export const botSubscribersQueryKey = (botId: string | undefined, params: SubscribersParams) =>
   ['bots', botId, 'subscribers', params] as const;
 
@@ -286,6 +296,90 @@ export const useDeleteBotMenu = (botId: string | undefined) => {
 export const useUploadBotMenuImage = (botId: string | undefined) =>
   useMutation({
     mutationFn: (file: File) => uploadBotMenuImage(botId as string, file),
+  });
+
+/** 键盘按钮布局；没有 Bot 时不请求，未配置时 rows 是空数组 */
+export const useBotKeyboardQuery = (botId: string | undefined) =>
+  useQuery({
+    queryKey: botKeyboardQueryKey(botId),
+    queryFn: () => getBotKeyboard(botId as string),
+    enabled: !!botId,
+  });
+
+/** 新增键盘按钮：成功后追加到缓存末尾，自成一行；错误由请求拦截器统一 toast */
+export const useCreateKeyboardButton = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: KeyboardButtonParams) => createBotKeyboardButton(botId as string, data),
+    onSuccess: (button) => {
+      queryClient.setQueryData<KeyboardLayout>(botKeyboardQueryKey(botId), (old) => ({
+        rows: [...(old?.rows ?? []), [button]],
+      }));
+      toast.success('Button saved');
+    },
+  });
+};
+
+/** 修改键盘按钮：成功后替换缓存里对应的一项，位置不变 */
+export const useUpdateKeyboardButton = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ buttonId, ...data }: { buttonId: string } & KeyboardButtonParams) =>
+      updateBotKeyboardButton(botId as string, buttonId, data),
+    onSuccess: (button) => {
+      queryClient.setQueryData<KeyboardLayout>(botKeyboardQueryKey(botId), (old) =>
+        old
+          ? {
+              rows: old.rows.map((row) =>
+                row.map((item) => (item.id === button.id ? button : item)),
+              ),
+            }
+          : old,
+      );
+      toast.success('Button saved');
+    },
+  });
+};
+
+/** 删除键盘按钮：成功后从缓存里移除，并去掉空行 */
+export const useDeleteKeyboardButton = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (buttonId: string) => deleteBotKeyboardButton(botId as string, buttonId),
+    onSuccess: (_data, buttonId) => {
+      queryClient.setQueryData<KeyboardLayout>(botKeyboardQueryKey(botId), (old) =>
+        old
+          ? {
+              rows: old.rows
+                .map((row) => row.filter((item) => item.id !== buttonId))
+                .filter((row) => row.length > 0),
+            }
+          : old,
+      );
+      toast.success('Button deleted');
+    },
+  });
+};
+
+/** 提交键盘布局（按钮 id 二维数组）：成功后用服务端返回的布局覆盖缓存 */
+export const useUpdateKeyboardLayout = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (rows: string[][]) => updateBotKeyboardLayout(botId as string, rows),
+    onSuccess: (layout) => {
+      queryClient.setQueryData(botKeyboardQueryKey(botId), layout);
+    },
+  });
+};
+
+/** 上传键盘按钮配图，只拿到公网地址；不改缓存，保存按钮时再带上这个地址 */
+export const useUploadKeyboardImage = (botId: string | undefined) =>
+  useMutation({
+    mutationFn: (file: File) => uploadBotKeyboardImage(botId as string, file),
   });
 
 /** 导出订阅者 CSV 并触发浏览器下载 */

@@ -1,7 +1,17 @@
-import type { MessageConfig, MessageConfigPatch } from '@/types/message';
+import type { KeyboardButton } from '@/types/bot';
+import type { MessageConfigPatch, MessageConfig } from '@/types/message';
 
-/** 菜单按钮：按钮本身（名称）+ 点击后触发的消息配置 */
-export type MenuButtonItem = MessageConfig;
+/**
+ * 键盘按钮的本地草稿：按钮本身（名称）+ 点击后触发的消息配置。
+ * id 为服务端 id，或未保存时的本地 id（local-N）。
+ */
+export interface MenuButtonItem extends Omit<MessageConfig, 'id'> {
+  id: string;
+  /** 还没有 POST 过 */
+  isNew: boolean;
+  /** 已保存内容；新草稿为 null，Cancel 用它恢复 */
+  baseline: KeyboardButton | null;
+}
 
 export type MenuButtonPatch = MessageConfigPatch;
 
