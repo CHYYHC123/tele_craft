@@ -54,7 +54,7 @@ const AddMenuEditor: FC<AddMenuEditorProps> = ({ botId, botName, menus }) => {
           onRemoveAction={(actionId) => menu.removeAction(selected.id, actionId)}
         />
       ) : (
-        <EmptyMenuCard />
+        <EmptyMenuCard canAdd={menu.canAdd} onAdd={menu.addItem} />
       )}
     </div>
   );
