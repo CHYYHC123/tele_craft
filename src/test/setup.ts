@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 import {
   resetMockAutoReplies,
   resetMockBots,
+  resetMockMenus,
   resetMockSubscribers,
   resetMockWelcomes,
 } from '@/mocks/handlers';
@@ -18,6 +19,7 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   resetMockBots();
+  resetMockMenus();
   resetMockSubscribers();
   resetMockWelcomes();
   resetMockAutoReplies();

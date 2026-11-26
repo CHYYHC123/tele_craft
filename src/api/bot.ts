@@ -7,6 +7,9 @@ import type {
   BotWelcome,
   KeywordReplyParams,
   KeywordReplyRule,
+  BotMenu,
+  BotMenuImage,
+  BotMenuParams,
   StartMessage,
   StartMessageImage,
   SubscriberPage,
@@ -66,6 +69,28 @@ export const updateBotKeywordReply = (id: string, replyId: string, data: Keyword
 /** 删除关键词回复及其全部关键词；成功时 model 为 null，开关状态不变 */
 export const deleteBotKeywordReply = (id: string, replyId: string) =>
   http.delete<null>(`/bots/${id}/keyword-replies/${replyId}`);
+
+/** 读取命令菜单；未配置时是空数组，不含 /start */
+export const getBotMenus = (id: string) => http.get<BotMenu[]>(`/bots/${id}/menus`);
+
+/** 上传菜单配图（PNG/JPG，≤2MB，≤640×360），multipart 字段名 file；不改已发布的菜单 */
+export const uploadBotMenuImage = (id: string, file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return http.post<BotMenuImage>(`/bots/${id}/menus/image`, form);
+};
+
+/** 新建并发布一条命令菜单，排在末尾 */
+export const createBotMenu = (id: string, data: BotMenuParams) =>
+  http.post<BotMenu>(`/bots/${id}/menus`, data);
+
+/** 修改并发布一条命令菜单，请求体与新建相同 */
+export const updateBotMenu = (id: string, menuId: string, data: BotMenuParams) =>
+  http.put<BotMenu>(`/bots/${id}/menus/${menuId}`, data);
+
+/** 删除一条命令菜单；成功时 model 为 null，这项的配图一并删除 */
+export const deleteBotMenu = (id: string, menuId: string) =>
+  http.delete<null>(`/bots/${id}/menus/${menuId}`);
 
 /** 首页四张统计卡的数字 */
 export const getBotStats = (id: string) => http.get<BotStats>(`/bots/${id}/stats`);

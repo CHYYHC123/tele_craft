@@ -4,9 +4,12 @@ import { toast } from 'sonner';
 import {
   addBot,
   addBotKeywordReply,
+  createBotMenu,
   deleteBotKeywordReply,
+  deleteBotMenu,
   exportBotSubscribers,
   getBotAutoReply,
+  getBotMenus,
   getBotStats,
   getBotSubscribers,
   getBotStartMessage,
@@ -15,8 +18,10 @@ import {
   updateBot,
   updateBotAutoReply,
   updateBotKeywordReply,
+  updateBotMenu,
   updateBotStartMessage,
   updateBotWelcome,
+  uploadBotMenuImage,
   uploadBotStartMessageImage,
 } from '@/api/bot';
 import { useBotStore } from '@/store/bot';
@@ -24,6 +29,8 @@ import { useUiStore } from '@/store/ui';
 import { selectIsLoggedIn, useUserStore } from '@/store/user';
 import type {
   AutoReply,
+  BotMenu,
+  BotMenuParams,
   KeywordReplyParams,
   SubscribersParams,
   UpdateAutoReplyParams,
@@ -40,6 +47,7 @@ export const botStartMessageQueryKey = (botId: string | undefined) =>
   ['bots', botId, 'start-message'] as const;
 export const botAutoReplyQueryKey = (botId: string | undefined) =>
   ['bots', botId, 'auto-reply'] as const;
+export const botMenusQueryKey = (botId: string | undefined) => ['bots', botId, 'menus'] as const;
 export const botSubscribersQueryKey = (botId: string | undefined, params: SubscribersParams) =>
   ['bots', botId, 'subscribers', params] as const;
 
@@ -218,6 +226,66 @@ export const useDeleteKeywordReply = (botId: string | undefined) => {
 export const useUploadStartMessageImage = (botId: string | undefined) =>
   useMutation({
     mutationFn: (file: File) => uploadBotStartMessageImage(botId as string, file),
+  });
+
+/** 命令菜单（不含 /start）；没有 Bot 时不请求，未配置时是空数组 */
+export const useBotMenusQuery = (botId: string | undefined) =>
+  useQuery({
+    queryKey: botMenusQueryKey(botId),
+    queryFn: () => getBotMenus(botId as string),
+    enabled: !!botId,
+  });
+
+/** 新建并发布菜单：成功后追加到缓存末尾；错误由请求拦截器统一 toast */
+export const useCreateBotMenu = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: BotMenuParams) => createBotMenu(botId as string, data),
+    onSuccess: (menu) => {
+      queryClient.setQueryData<BotMenu[]>(botMenusQueryKey(botId), (old) =>
+        old ? [...old, menu] : [menu],
+      );
+      toast.success('Menu published');
+    },
+  });
+};
+
+/** 修改并发布菜单：成功后替换缓存里对应的一项 */
+export const useUpdateBotMenu = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ menuId, ...data }: { menuId: string } & BotMenuParams) =>
+      updateBotMenu(botId as string, menuId, data),
+    onSuccess: (menu) => {
+      queryClient.setQueryData<BotMenu[]>(botMenusQueryKey(botId), (old) =>
+        old?.map((item) => (item.id === menu.id ? menu : item)),
+      );
+      toast.success('Menu published');
+    },
+  });
+};
+
+/** 删除菜单：成功后从缓存里移除 */
+export const useDeleteBotMenu = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (menuId: string) => deleteBotMenu(botId as string, menuId),
+    onSuccess: (_data, menuId) => {
+      queryClient.setQueryData<BotMenu[]>(botMenusQueryKey(botId), (old) =>
+        old?.filter((item) => item.id !== menuId),
+      );
+      toast.success('Menu deleted');
+    },
+  });
+};
+
+/** 上传菜单配图，只拿到公网地址；不改缓存，保存菜单时再带上这个地址 */
+export const useUploadBotMenuImage = (botId: string | undefined) =>
+  useMutation({
+    mutationFn: (file: File) => uploadBotMenuImage(botId as string, file),
   });
 
 /** 导出订阅者 CSV 并触发浏览器下载 */

@@ -123,6 +123,40 @@ export interface StartMessageImage {
   imageUrl: string;
 }
 
+/** 命令菜单里的操作按钮 */
+export interface BotMenuButton {
+  name: string;
+  url: string;
+}
+
+/**
+ * Bot 命令菜单的一项自定义命令（不含 /start，/start 由开场消息负责）。
+ * command 不带斜杠；未配置过时列表是空数组。
+ */
+export interface BotMenu {
+  id: string;
+  /** 小写字母、数字、下划线，最长 32，不能是 start */
+  command: string;
+  /** 菜单里命令下方的一行说明，1 到 256 个字符 */
+  commandDescription: string;
+  messageType: 'graphic' | 'text' | 'link';
+  imageUrl: string | null;
+  /** 最长 1024，只允许 b、i、a、br；link 类型不保存正文 */
+  description: string;
+  /** link 类型的外链；其它类型为 null */
+  linkUrl: string | null;
+  buttonsEnabled: boolean;
+  buttons: BotMenuButton[];
+}
+
+/** 新建/修改菜单的请求体；服务端会去掉 command 开头的 / 并转成小写 */
+export type BotMenuParams = Omit<BotMenu, 'id'>;
+
+/** 上传菜单配图的返回：只有公网地址，不会改动已发布的菜单 */
+export interface BotMenuImage {
+  imageUrl: string;
+}
+
 /** 两个字段都可选，但至少传一个；只传发生变化的字段 */
 export interface UpdateBotParams {
   /** 显示名，1-64 个字符 */

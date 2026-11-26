@@ -3,6 +3,8 @@ import { apiFail, apiOk } from '@/mocks/response';
 import type {
   AutoReply,
   Bot,
+  BotMenu,
+  BotMenuParams,
   BotStats,
   BotWelcome,
   KeywordReplyParams,
@@ -101,6 +103,107 @@ const mockAutoReplies = new Map<string, AutoReply>();
 export function resetMockAutoReplies(autoReplies: Record<string, AutoReply> = {}) {
   mockAutoReplies.clear();
   Object.entries(autoReplies).forEach(([id, value]) => mockAutoReplies.set(id, value));
+}
+
+/** 命令菜单（内存态，按 bot id 存；没有记录表示未配置，读取时是空数组） */
+const mockMenus = new Map<string, BotMenu[]>();
+/** 这个 Bot 上传过、还没被保存进菜单的配图地址 */
+const mockMenuImages = new Map<string, Set<string>>();
+
+const MOCK_MENU_LIMIT = 99;
+const MENU_COMMAND_PATTERN = /^[a-z0-9_]{1,32}$/;
+
+/** 测试用：重置/预置 mock 命令菜单 */
+export function resetMockMenus(menus: Record<string, BotMenu[]> = {}) {
+  mockMenus.clear();
+  mockMenuImages.clear();
+  Object.entries(menus).forEach(([id, value]) => mockMenus.set(id, value));
+}
+
+/** 去掉开头的 / 并转成小写 */
+const normalizeMenuCommand = (command: string) => command.trim().replace(/^\/+/, '').toLowerCase();
+
+/**
+ * 校验菜单请求体。格式不合法返回 400 VALIDATION_ERROR，
+ * 命令重复或图片不属于这个 Bot 返回 400 BAD_REQUEST，通过则返回规整后的值。
+ */
+function checkMenuBody(
+  body: Partial<BotMenuParams> | null,
+  others: BotMenu[],
+  botId: string,
+  currentImageUrl: string | null,
+): { value: BotMenuParams } | { error: Response } {
+  const validationError = () => ({
+    error: apiFail('VALIDATION_ERROR', '参数校验失败', 400, [
+      { path: ['menu'], message: 'Invalid' },
+    ]),
+  });
+  if (!body) return validationError();
+
+  const command = typeof body.command === 'string' ? normalizeMenuCommand(body.command) : '';
+  if (!MENU_COMMAND_PATTERN.test(command) || command === 'start') return validationError();
+
+  const commandDescription =
+    typeof body.commandDescription === 'string' ? body.commandDescription.trim() : '';
+  if (!commandDescription || commandDescription.length > 256) return validationError();
+  if (others.some((item) => item.command === command)) {
+    return { error: apiFail('BAD_REQUEST', '命令已存在', 400) };
+  }
+
+  const { messageType } = body;
+  if (messageType !== 'graphic' && messageType !== 'text' && messageType !== 'link') {
+    return validationError();
+  }
+
+  const description = typeof body.description === 'string' ? body.description : '';
+  if (
+    description.length > 1024 ||
+    (description.match(HTML_TAG) ?? []).some((tag) => !ALLOWED_TAG.test(tag))
+  ) {
+    return validationError();
+  }
+
+  const buttons = Array.isArray(body.buttons) ? body.buttons : [];
+  if (
+    buttons.some(
+      (button) => !button?.name || button.name.length > 64 || !/^https?:\/\//.test(button.url),
+    )
+  ) {
+    return validationError();
+  }
+
+  const imageUrl = body.imageUrl ?? null;
+  const uploaded = mockMenuImages.get(botId) ?? new Set<string>();
+  const imageAllowed =
+    imageUrl === null ||
+    uploaded.has(imageUrl) ||
+    (currentImageUrl !== null && imageUrl === currentImageUrl);
+  if (messageType === 'graphic' && !imageUrl) return validationError();
+  if (messageType === 'graphic' && !imageAllowed) {
+    return { error: apiFail('BAD_REQUEST', 'imageUrl 不是这个 Bot 上传过的图片', 400) };
+  }
+  if (messageType === 'text' && description.trim() === '') return validationError();
+
+  const linkUrl = typeof body.linkUrl === 'string' ? body.linkUrl.trim() : null;
+  if (messageType === 'link' && (!linkUrl || !/^https?:\/\//.test(linkUrl))) {
+    return validationError();
+  }
+
+  return {
+    value: {
+      command,
+      commandDescription,
+      messageType,
+      imageUrl: messageType === 'graphic' ? imageUrl : null,
+      description: messageType === 'link' ? '' : description,
+      linkUrl: messageType === 'link' ? linkUrl : null,
+      buttonsEnabled: messageType === 'link' ? false : Boolean(body.buttonsEnabled),
+      buttons:
+        messageType === 'link'
+          ? []
+          : buttons.map((button) => ({ name: button.name, url: button.url })),
+    },
+  };
 }
 
 /** 开场消息配图的公网地址前缀（真实地址由 Upstash Blob 返回，这里模拟同一格式） */
@@ -568,6 +671,116 @@ export const handlers = [
       ...autoReply,
       keywordReplies: autoReply.keywordReplies.filter((item) => item.id !== replyId),
     });
+    return apiOk(null);
+  }),
+
+  // 读取命令菜单（未配置时是空数组，不含 /start）
+  http.get(`${API_BASE}/bots/:id/menus`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    if (!mockBots.some((item) => item.id === params.id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    return apiOk(mockMenus.get(String(params.id)) ?? []);
+  }),
+
+  // 上传菜单配图：只返回公网地址，不改已发布的菜单
+  http.post(`${API_BASE}/bots/:id/menus/image`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const form = await request.formData().catch(() => null);
+    const file = form?.get('file');
+    if (
+      !file ||
+      typeof file === 'string' ||
+      !MOCK_IMAGE_TYPES.includes(file.type) ||
+      file.size > MOCK_IMAGE_MAX_BYTES
+    ) {
+      return apiFail('BAD_REQUEST', '只支持 PNG/JPG，且不超过 2MB', 400);
+    }
+    const model: StartMessageImage = {
+      imageUrl: `${MOCK_BLOB_PREFIX}${id}/menus/${file.name}`,
+    };
+    const uploaded = mockMenuImages.get(id) ?? new Set<string>();
+    uploaded.add(model.imageUrl);
+    mockMenuImages.set(id, uploaded);
+    return apiOk(model);
+  }),
+
+  // 新建并发布菜单项，排在末尾
+  http.post(`${API_BASE}/bots/:id/menus`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const menus = mockMenus.get(id) ?? [];
+    const body = (await request.json().catch(() => null)) as Partial<BotMenuParams> | null;
+    const checked = checkMenuBody(body, menus, id, null);
+    if ('error' in checked) return checked.error;
+    if (menus.length >= MOCK_MENU_LIMIT) {
+      return apiFail('BAD_REQUEST', '菜单已有 99 条', 400);
+    }
+    const menu: BotMenu = { id: crypto.randomUUID(), ...checked.value };
+    mockMenus.set(id, [...menus, menu]);
+    return apiOk(menu);
+  }),
+
+  // 修改并发布菜单项
+  http.put(`${API_BASE}/bots/:id/menus/:menuId`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    const menuId = String(params.menuId);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const menus = mockMenus.get(id) ?? [];
+    const current = menus.find((item) => item.id === menuId);
+    if (!current) return apiFail('NOT_FOUND', '菜单项不存在', 404);
+    const body = (await request.json().catch(() => null)) as Partial<BotMenuParams> | null;
+    const checked = checkMenuBody(
+      body,
+      menus.filter((item) => item.id !== menuId),
+      id,
+      current.imageUrl,
+    );
+    if ('error' in checked) return checked.error;
+    const menu: BotMenu = { id: menuId, ...checked.value };
+    mockMenus.set(
+      id,
+      menus.map((item) => (item.id === menuId ? menu : item)),
+    );
+    return apiOk(menu);
+  }),
+
+  // 删除菜单项：成功 model 为 null
+  http.delete(`${API_BASE}/bots/:id/menus/:menuId`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    const menuId = String(params.menuId);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const menus = mockMenus.get(id) ?? [];
+    if (!menus.some((item) => item.id === menuId)) {
+      return apiFail('NOT_FOUND', '菜单项不存在', 404);
+    }
+    mockMenus.set(
+      id,
+      menus.filter((item) => item.id !== menuId),
+    );
     return apiOk(null);
   }),
 

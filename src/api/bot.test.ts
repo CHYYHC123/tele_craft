@@ -2,8 +2,11 @@ import { http } from 'msw';
 import { describe, it, expect } from 'vitest';
 import {
   addBot,
+  createBotMenu,
+  deleteBotMenu,
   exportBotSubscribers,
   getBotAutoReply,
+  getBotMenus,
   getBotStats,
   getBotSubscribers,
   getBotStartMessage,
@@ -11,14 +14,16 @@ import {
   getBots,
   updateBot,
   updateBotAutoReply,
+  updateBotMenu,
   updateBotStartMessage,
   updateBotWelcome,
+  uploadBotMenuImage,
   uploadBotStartMessageImage,
 } from '@/api/bot';
 import { apiFail, apiOk } from '@/mocks/response';
 import { server } from '@/mocks/server';
 import { useUserStore } from '@/store/user';
-import type { UpdateStartMessageParams } from '@/types/bot';
+import type { BotMenuParams, UpdateStartMessageParams } from '@/types/bot';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -307,5 +312,106 @@ describe('api/bot', () => {
     login();
     server.use(http.get(`${API}/bots/x/stats`, () => apiFail('NOT_FOUND', 'Bot 不存在', 404)));
     await expect(getBotStats('x')).rejects.toThrow();
+  });
+
+  it('getBotMenus：带 Bearer，解包菜单列表，未配置时是空数组', async () => {
+    login();
+    let authorization: string | null = null;
+    server.use(
+      http.get(`${API}/bots/b1/menus`, ({ request }) => {
+        authorization = request.headers.get('authorization');
+        return apiOk([]);
+      }),
+    );
+    await expect(getBotMenus('b1')).resolves.toEqual([]);
+    expect(authorization).toBe('Bearer jwt-bot');
+  });
+
+  it('uploadBotMenuImage：multipart 文件字段名是 file，返回公网地址', async () => {
+    login();
+    let uploadedName: string | undefined;
+    server.use(
+      http.post(`${API}/bots/b1/menus/image`, async ({ request }) => {
+        const form = await request.formData();
+        uploadedName = (form.get('file') as File | null)?.name;
+        return apiOk({ imageUrl: 'https://example.blob.upstash.io/bots/b1/menus/banner.jpg' });
+      }),
+    );
+    const file = new File(['png'], 'banner.png', { type: 'image/png' });
+    await expect(uploadBotMenuImage('b1', file)).resolves.toEqual({
+      imageUrl: 'https://example.blob.upstash.io/bots/b1/menus/banner.jpg',
+    });
+    expect(uploadedName).toBe('banner.png');
+  });
+
+  it('createBotMenu：POST 请求体是菜单项，返回带 id 的结果', async () => {
+    login();
+    let body: unknown;
+    const params = {
+      command: 'support',
+      commandDescription: 'Contact support',
+      messageType: 'text',
+      imageUrl: null,
+      description: 'Hi',
+      linkUrl: null,
+      buttonsEnabled: false,
+      buttons: [],
+    } satisfies BotMenuParams;
+    server.use(
+      http.post(`${API}/bots/b1/menus`, async ({ request }) => {
+        body = await request.json();
+        return apiOk({ id: 'm1', ...params });
+      }),
+    );
+    await expect(createBotMenu('b1', params)).resolves.toEqual({ id: 'm1', ...params });
+    expect(body).toEqual(params);
+  });
+
+  it('createBotMenu：命令不合法（400）时 reject', async () => {
+    login();
+    server.use(
+      http.post(`${API}/bots/b1/menus`, () => apiFail('VALIDATION_ERROR', '参数校验失败', 400)),
+    );
+    await expect(
+      createBotMenu('b1', {
+        command: 'start',
+        commandDescription: 'Nope',
+        messageType: 'text',
+        imageUrl: null,
+        description: 'Hi',
+        linkUrl: null,
+        buttonsEnabled: false,
+        buttons: [],
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('updateBotMenu：PUT /bots/:id/menus/:menuId，请求体与新建相同', async () => {
+    login();
+    let body: unknown;
+    const params = {
+      command: 'support',
+      commandDescription: 'Help',
+      messageType: 'text',
+      imageUrl: null,
+      description: 'Updated',
+      linkUrl: null,
+      buttonsEnabled: false,
+      buttons: [],
+    } satisfies BotMenuParams;
+    server.use(
+      http.put(`${API}/bots/b1/menus/m1`, async ({ request }) => {
+        body = await request.json();
+        return apiOk({ id: 'm1', ...params });
+      }),
+    );
+    await expect(updateBotMenu('b1', 'm1', params)).resolves.toEqual({ id: 'm1', ...params });
+    expect(body).toEqual(params);
+  });
+
+  it('deleteBotMenu：成功时解包为 null', async () => {
+    login();
+    server.use(http.delete(`${API}/bots/b1/menus/m1`, () => apiOk(null)));
+    await expect(deleteBotMenu('b1', 'm1')).resolves.toBeNull();
   });
 });

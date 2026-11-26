@@ -1,24 +1,139 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { moveItemUp } from '@/views/content/add-menu/utils';
+import type { BotMenu } from '@/types/bot';
+import { DEFAULT_MESSAGE } from '@/utils/message-config';
+import {
+  canPublishMenu,
+  createMenuDraft,
+  isMenuDraftDirty,
+  menuToDraft,
+  normalizeCommand,
+  toMenuParams,
+} from '@/views/content/add-menu/utils';
 
-const items = [{ id: 1 }, { id: 2 }, { id: 3 }];
+const menu = (patch: Partial<BotMenu> = {}): BotMenu => ({
+  id: 'm1',
+  command: 'support',
+  commandDescription: 'Contact support',
+  messageType: 'text',
+  imageUrl: null,
+  description: 'Hello',
+  linkUrl: null,
+  buttonsEnabled: false,
+  buttons: [],
+  ...patch,
+});
 
-describe('moveItemUp', () => {
-  it('与上一项交换位置', () => {
-    expect(moveItemUp(items, 3)).toEqual([{ id: 1 }, { id: 3 }, { id: 2 }]);
+describe('normalizeCommand', () => {
+  it('去掉开头的斜杠并转成小写', () => {
+    expect(normalizeCommand(' /Support ')).toBe('support');
+    expect(normalizeCommand('help_2')).toBe('help_2');
+  });
+});
+
+describe('toMenuParams', () => {
+  it('文本消息不带图片和外链，空按钮行不提交', () => {
+    const draft = menuToDraft(menu());
+    draft.actions = [
+      { id: 1, name: 'Open', link: 'https://example.com' },
+      { id: 2, name: '  ', link: '' },
+    ];
+    draft.actionEnabled = true;
+
+    expect(toMenuParams(draft, 'https://ignored.example/a.jpg')).toEqual({
+      command: 'support',
+      commandDescription: 'Contact support',
+      messageType: 'text',
+      imageUrl: null,
+      description: 'Hello',
+      linkUrl: null,
+      buttonsEnabled: true,
+      buttons: [{ name: 'Open', url: 'https://example.com' }],
+    });
   });
 
-  it('已经在最上面时保持不变', () => {
-    expect(moveItemUp(items, 1)).toBe(items);
+  it('链接只提交外链，正文和按钮清空', () => {
+    const draft = menuToDraft(
+      menu({ messageType: 'link', description: 'ignored', linkUrl: 'https://example.com' }),
+    );
+    draft.description = 'still ignored';
+    draft.actionEnabled = true;
+    draft.actions = [{ id: 1, name: 'Open', link: 'https://example.com/go' }];
+
+    expect(toMenuParams(draft, 'https://ignored.example/a.jpg')).toEqual({
+      command: 'support',
+      commandDescription: 'Contact support',
+      messageType: 'link',
+      imageUrl: null,
+      description: '',
+      linkUrl: 'https://example.com',
+      buttonsEnabled: false,
+      buttons: [],
+    });
   });
 
-  it('找不到 id 时保持不变', () => {
-    expect(moveItemUp(items, 9)).toBe(items);
+  it('图文带上调用方传入的图片地址', () => {
+    const draft = menuToDraft(menu({ messageType: 'graphic', imageUrl: null, description: 'Hi' }));
+
+    expect(
+      toMenuParams(draft, 'https://example.blob.upstash.io/bots/b1/menus/banner.jpg'),
+    ).toMatchObject({
+      messageType: 'graphic',
+      imageUrl: 'https://example.blob.upstash.io/bots/b1/menus/banner.jpg',
+      description: 'Hi',
+      linkUrl: null,
+    });
   });
 
-  it('不修改原数组', () => {
-    moveItemUp(items, 2);
-    expect(items).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+  it('命令去掉斜杠并转成小写', () => {
+    const draft = createMenuDraft('local-1');
+    draft.name = '/Promo';
+    draft.menuDescription = 'Sale';
+    draft.messageType = 'text';
+
+    expect(toMenuParams(draft, null).command).toBe('promo');
+  });
+});
+
+describe('isMenuDraftDirty', () => {
+  it('刚从服务端加载时没有改动', () => {
+    expect(isMenuDraftDirty(menuToDraft(menu()), false)).toBe(false);
+  });
+
+  it('新草稿和新图片算改动', () => {
+    expect(isMenuDraftDirty(createMenuDraft('local-1'), false)).toBe(true);
+    expect(isMenuDraftDirty(menuToDraft(menu()), true)).toBe(true);
+  });
+});
+
+describe('canPublishMenu', () => {
+  it('命令为空、是 start，或文本没有正文时不能提交', () => {
+    const draft = createMenuDraft('local-1');
+    draft.messageType = 'text';
+    draft.menuDescription = 'Help';
+    expect(canPublishMenu(draft, false)).toBe(false);
+
+    draft.name = '/start';
+    draft.description = 'Hi';
+    expect(canPublishMenu(draft, false)).toBe(false);
+
+    draft.name = 'help';
+    draft.description = '   ';
+    expect(canPublishMenu(draft, false)).toBe(false);
+
+    draft.description = DEFAULT_MESSAGE;
+    expect(canPublishMenu(draft, false)).toBe(true);
+  });
+
+  it('图文没有图片时不能提交，选了新图就可以', () => {
+    const draft = createMenuDraft('local-1');
+    draft.name = 'promo';
+    draft.menuDescription = 'Banner';
+    expect(canPublishMenu(draft, false)).toBe(false);
+    expect(canPublishMenu(draft, true)).toBe(true);
+  });
+
+  it('已发布且没有改动时不能提交', () => {
+    expect(canPublishMenu(menuToDraft(menu()), false)).toBe(false);
   });
 });

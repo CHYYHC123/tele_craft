@@ -23,6 +23,12 @@ interface MessageConfigFormProps {
     patch: Partial<Pick<ActionButtonItem, 'name' | 'link'>>,
   ) => void;
   onRemoveAction: (actionId: number) => void;
+  /** 命令名称上限；不传则不限制 */
+  nameMaxLength?: number;
+  /** 命令说明上限；不传则不限制 */
+  menuDescriptionMaxLength?: number;
+  /** 消息正文上限，默认 MESSAGE_MAX_LENGTH */
+  descriptionMaxLength?: number;
 }
 
 /** 名称 + 消息类型 + 对应消息内容的表单行，不含外层卡片 */
@@ -33,6 +39,9 @@ const MessageConfigForm: FC<MessageConfigFormProps> = ({
   onAddAction,
   onUpdateAction,
   onRemoveAction,
+  nameMaxLength,
+  menuDescriptionMaxLength,
+  descriptionMaxLength = MESSAGE_MAX_LENGTH,
 }) => {
   const { messageType } = value;
 
@@ -43,6 +52,7 @@ const MessageConfigForm: FC<MessageConfigFormProps> = ({
           <input
             aria-label="Menu name"
             placeholder="menu name"
+            maxLength={nameMaxLength}
             value={value.name}
             onChange={(event) => onChange({ name: event.target.value })}
             className={INPUT_CLASS}
@@ -50,6 +60,7 @@ const MessageConfigForm: FC<MessageConfigFormProps> = ({
           <input
             aria-label="Menu description"
             placeholder="menu description"
+            maxLength={menuDescriptionMaxLength}
             value={value.menuDescription}
             onChange={(event) => onChange({ menuDescription: event.target.value })}
             className={INPUT_CLASS}
@@ -94,7 +105,7 @@ const MessageConfigForm: FC<MessageConfigFormProps> = ({
           <FormRow label="Description" hint="Write a brief description">
             <DescriptionEditor
               value={value.description}
-              maxLength={MESSAGE_MAX_LENGTH}
+              maxLength={descriptionMaxLength}
               onChange={(description) => onChange({ description })}
             />
           </FormRow>
