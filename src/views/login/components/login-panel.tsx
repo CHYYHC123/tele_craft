@@ -54,7 +54,7 @@ const LoginPanel: FC = () => {
         <h1 className="font-display text-4xl font-semibold tracking-tight text-neutral-900">
           Log in
         </h1>
-        <p className="mt-2 text-sm text-neutral-500">Welcome to Tele Craft robot</p>
+        <p className="mt-2 text-sm text-neutral-500">Welcome to TeleCraft robot</p>
         <button
           type="button"
           onClick={login}
@@ -105,7 +105,7 @@ const LoginPanel: FC = () => {
             type="button"
             onClick={copyLink}
             disabled={!deepLink}
-            className="mx-auto mt-3 flex cursor-pointer items-center gap-1.5 text-sm text-neutral-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mx-auto mt-3 flex cursor-pointer items-center gap-1.5 text-sm text-neutral-900 transition-colors duration-200 hover:text-neutral-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-neutral-500"
           >
             Copy link to clipboard
           </button>

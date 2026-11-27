@@ -20,10 +20,8 @@ const AppHeader: FC = () => {
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#e4e7ee] bg-[#f5f6f8] px-6">
       <div className="flex items-center gap-26">
         <div className="flex items-center gap-2.5">
-          <img src={logo} alt="AEON" className="size-8" />
-          <span className="text-[15px] font-semibold tracking-tight text-[#191b26]">
-            TELE CRAFT
-          </span>
+          <img src={logo} alt="TeleCraft" className="size-8" />
+          <span className="text-[15px] font-semibold tracking-tight text-[#191b26]">TeleCraft</span>
         </div>
 
         {currentBot ? (

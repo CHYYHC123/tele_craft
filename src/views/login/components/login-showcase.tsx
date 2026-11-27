@@ -2,7 +2,8 @@ import type { FC } from 'react';
 import { ChevronRight, Star } from 'lucide-react';
 
 import login_bg from '@/assets/image/login/login_bg.png';
-import logo from '@/assets/image/login/logo.png';
+// import logo from '@/assets/image/login/logo.png';
+import logo from '@/assets/image/login/logo_2.png';
 import { cn } from '@/utils';
 
 const STARS = [0, 1, 2, 3, 4];
@@ -27,13 +28,21 @@ const ChevronIcon: FC<ChevronIconProps> = ({ className }) => {
 
 const LoginShowcase: FC = () => {
   return (
-    <aside className="relative hidden min-h-screen w-1/2 overflow-hidden bg-[#4EC4FF] lg:block">
-      <img src={login_bg} alt="" className="absolute inset-0 size-full object-cover" />
-      <img src={logo} alt="AEON" className="absolute top-8 left-10 z-10 size-12" />
+    <aside className="relative hidden min-h-screen w-1/2 overflow-hidden bg-[#56ade7] lg:block">
+      <img
+        src={login_bg}
+        alt=""
+        draggable={false}
+        className="absolute inset-0 size-full object-cover select-none"
+      />
+      <div className="absolute top-8 left-10 z-10 flex items-center gap-0">
+        <img src={logo} alt="TeleCraft" className="h-14 shrink-0 select-none" />
+        {/* <span className="text-xl font-semibold text-white">TeleCraft</span> */}
+      </div>
 
       <div className="relative z-10 mt-28 mr-28 ml-10 max-w-xl rounded-[28px] border border-white/35 bg-white/20 p-7 text-white backdrop-blur-md">
         <p className="font-display text-xl leading-snug font-medium">
-          “ We’ve been using Tele Craft to create bots and can’t imagine working without it. It’s
+          “ We’ve been using TeleCraft to create bots and can’t imagine working without it. It’s
           incredible. 👍 ”
         </p>
 
