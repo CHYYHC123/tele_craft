@@ -22,6 +22,17 @@ import type {
   UpdateStartMessageParams,
 } from '@/types/bot';
 import type {
+  ChatCounts,
+  ChatImage,
+  ChatMessage,
+  ChatMessagePage,
+  ChatSession,
+  ChatSessionPage,
+  ChatStatus,
+  ChatSubscriber,
+  SendChatMessageParams,
+} from '@/types/chat';
+import type {
   AuthResult,
   LoginSession,
   LoginSessionState,
@@ -382,6 +393,61 @@ let mockSubscribers: Subscriber[] = [];
 /** 测试用：重置/预置 mock 订阅者 */
 export function resetMockSubscribers(subscribers: Subscriber[] = []) {
   mockSubscribers = subscribers;
+}
+
+/** 一个聊天会话：用户资料 + 全部消息（旧的在前）+ 未读数 */
+export interface MockChatRecord {
+  subscriber: ChatSubscriber;
+  messages: ChatMessage[];
+  unreadCount: number;
+}
+
+/** 聊天会话（内存态，按 bot id 存；没有消息的会话不会出现在列表里） */
+const mockChats = new Map<string, MockChatRecord[]>();
+/** 这个 Bot 上传过的聊天图片：发送图片消息时 imageUrl/imagePath 必须来自这里 */
+const mockChatImages = new Map<string, Map<string, string>>();
+
+const CHAT_STATUSES: ChatStatus[] = ['open', 'muted', 'closed'];
+const CHAT_TEXT_MAX = 4096;
+const CHAT_CAPTION_MAX = 1024;
+const CHAT_PAGE_SIZE_MAX = 100;
+const CHAT_MESSAGE_LIMIT_DEFAULT = 30;
+
+/** 测试用：重置/预置 mock 聊天会话 */
+export function resetMockChats(chats: Record<string, MockChatRecord[]> = {}) {
+  mockChats.clear();
+  mockChatImages.clear();
+  Object.entries(chats).forEach(([id, value]) => mockChats.set(id, value));
+}
+
+const isChatStatus = (value: unknown): value is ChatStatus =>
+  CHAT_STATUSES.includes(value as ChatStatus);
+
+/** 列表里的一项：最后一条消息的预览与时间由消息推出；图片没有图注时预览是 [图片] */
+function toChatSession(record: MockChatRecord): ChatSession {
+  const last = record.messages.at(-1) as ChatMessage;
+  const { id, telegramUserId, firstName, lastName, username, status } = record.subscriber;
+  return {
+    id,
+    telegramUserId,
+    firstName,
+    lastName,
+    username,
+    status,
+    lastMessagePreview: last.messageType === 'image' && !last.text ? '[图片]' : last.text,
+    lastMessageAt: last.createdAt,
+    unreadCount: record.unreadCount,
+  };
+}
+
+const validationFail = (path: string) =>
+  apiFail('VALIDATION_ERROR', '参数校验失败', 400, [{ path: [path], message: 'Invalid' }]);
+
+/** 正整数查询参数：没传用默认值，不是正整数返回 null */
+function parsePositiveInt(raw: string | null, fallback: number): number | null {
+  if (raw === null) return fallback;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 1 ? value : null;
 }
 
 const MOCK_STATS: BotStats = {
@@ -1164,5 +1230,235 @@ export const handlers = [
       total: matched.length,
     };
     return apiOk(model);
+  }),
+
+  // 聊天会话列表：按状态筛选 + 搜索，最后一条消息时间倒序；counts 不受 status 和 q 影响
+  http.get(`${API_BASE}/bots/:id/chats`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const botId = String(params.id);
+    if (!mockBots.some((item) => item.id === botId)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status') ?? 'open';
+    const page = parsePositiveInt(url.searchParams.get('page'), 1);
+    const pageSize = parsePositiveInt(url.searchParams.get('pageSize'), 20);
+    if (!isChatStatus(status)) return validationFail('status');
+    if (page === null) return validationFail('page');
+    if (pageSize === null || pageSize > CHAT_PAGE_SIZE_MAX) return validationFail('pageSize');
+
+    const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    const sessions = (mockChats.get(botId) ?? [])
+      .filter((record) => record.messages.length > 0)
+      .map(toChatSession);
+    const counts: ChatCounts = { open: 0, muted: 0, closed: 0 };
+    sessions.forEach((session) => {
+      counts[session.status] += 1;
+    });
+    const matched = sessions
+      .filter((session) => session.status === status)
+      .filter(
+        (session) =>
+          !q ||
+          session.firstName.toLowerCase().includes(q) ||
+          (session.lastName ?? '').toLowerCase().includes(q) ||
+          (session.username ?? '').toLowerCase().includes(q),
+      )
+      .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
+    const model: ChatSessionPage = {
+      items: matched.slice((page - 1) * pageSize, page * pageSize),
+      page,
+      pageSize,
+      total: matched.length,
+      counts,
+    };
+    return apiOk(model);
+  }),
+
+  // 上传聊天图片（multipart，文件字段名 file）：返回图片地址和对象路径
+  http.post(`${API_BASE}/bots/:id/chats/image`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const botId = String(params.id);
+    if (!mockBots.some((item) => item.id === botId)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const form = await request.formData().catch(() => null);
+    const file = form?.get('file');
+    if (
+      !file ||
+      typeof file === 'string' ||
+      !MOCK_IMAGE_TYPES.includes(file.type) ||
+      file.size > MOCK_IMAGE_MAX_BYTES
+    ) {
+      return apiFail('BAD_REQUEST', '只支持 PNG/JPG，且不超过 2MB', 400);
+    }
+    const imagePath = `bots/${botId}/chat/${crypto.randomUUID()}-${file.name}`;
+    const model: ChatImage = {
+      imageUrl: `https://example.blob.upstash.io/${imagePath}`,
+      imagePath,
+    };
+    const uploaded = mockChatImages.get(botId) ?? new Map<string, string>();
+    uploaded.set(model.imageUrl, model.imagePath);
+    mockChatImages.set(botId, uploaded);
+    return apiOk(model);
+  }),
+
+  // 聊天对象信息
+  http.get(`${API_BASE}/bots/:id/chats/:chatId`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const botId = String(params.id);
+    if (!mockBots.some((item) => item.id === botId)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const record = (mockChats.get(botId) ?? []).find(
+      (item) => item.subscriber.id === params.chatId,
+    );
+    if (!record) return apiFail('NOT_FOUND', '会话不存在', 404);
+    return apiOk(record.subscriber);
+  }),
+
+  // 修改会话状态
+  http.patch(`${API_BASE}/bots/:id/chats/:chatId/status`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const botId = String(params.id);
+    if (!mockBots.some((item) => item.id === botId)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const records = mockChats.get(botId) ?? [];
+    const record = records.find((item) => item.subscriber.id === params.chatId);
+    if (!record) return apiFail('NOT_FOUND', '会话不存在', 404);
+    const body = (await request.json().catch(() => null)) as { status?: unknown } | null;
+    const status = body?.status;
+    if (!isChatStatus(status)) return validationFail('status');
+    record.subscriber = { ...record.subscriber, status };
+    return apiOk({ status });
+  }),
+
+  // 查询聊天消息：不带游标返回最新一页（新的在前）；before 翻历史（新的在前）；afterId 拉新消息（旧的在前）
+  http.get(`${API_BASE}/bots/:id/chats/:chatId/messages`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const botId = String(params.id);
+    if (!mockBots.some((item) => item.id === botId)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const record = (mockChats.get(botId) ?? []).find(
+      (item) => item.subscriber.id === params.chatId,
+    );
+    if (!record) return apiFail('NOT_FOUND', '会话不存在', 404);
+
+    const url = new URL(request.url);
+    const before = url.searchParams.get('before');
+    const afterId = url.searchParams.get('afterId');
+    const limit = parsePositiveInt(url.searchParams.get('limit'), CHAT_MESSAGE_LIMIT_DEFAULT);
+    if (limit === null || limit > CHAT_PAGE_SIZE_MAX || (before && afterId)) {
+      return validationFail('limit');
+    }
+
+    const { messages } = record;
+    const cursor = before ?? afterId;
+    const cursorIndex = cursor ? messages.findIndex((item) => item.id === cursor) : -1;
+    if (cursor && cursorIndex === -1) return apiFail('BAD_REQUEST', '游标对应的消息不存在', 400);
+
+    if (afterId) {
+      const newer = messages.slice(cursorIndex + 1);
+      const model: ChatMessagePage = {
+        items: newer.slice(0, limit),
+        hasMore: newer.length > limit,
+      };
+      return apiOk(model);
+    }
+    const older = before ? messages.slice(0, cursorIndex) : messages;
+    const model: ChatMessagePage = {
+      items: older.slice(-limit).reverse(),
+      hasMore: older.length > limit,
+    };
+    return apiOk(model);
+  }),
+
+  // 发送聊天消息：以 Bot 身份发出，用户已屏蔽 Bot 时失败；相同 clientMessageId 直接返回已保存的那条
+  http.post(`${API_BASE}/bots/:id/chats/:chatId/messages`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const botId = String(params.id);
+    if (!mockBots.some((item) => item.id === botId)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const record = (mockChats.get(botId) ?? []).find(
+      (item) => item.subscriber.id === params.chatId,
+    );
+    if (!record) return apiFail('NOT_FOUND', '会话不存在', 404);
+
+    const body = (await request.json().catch(() => null)) as Partial<SendChatMessageParams> | null;
+    const text = typeof body?.text === 'string' ? body.text : '';
+    const clientMessageId = body?.clientMessageId ?? null;
+    if (
+      clientMessageId !== null &&
+      (typeof clientMessageId !== 'string' || clientMessageId.length > 64)
+    ) {
+      return validationFail('clientMessageId');
+    }
+    if (body?.type === 'text') {
+      if (!text.trim() || text.length > CHAT_TEXT_MAX) return validationFail('text');
+    } else if (body?.type === 'image') {
+      if (text.length > CHAT_CAPTION_MAX) return validationFail('text');
+      if (!body.imageUrl || !body.imagePath) return validationFail('imageUrl');
+      if (mockChatImages.get(botId)?.get(body.imageUrl) !== body.imagePath) {
+        return apiFail('BAD_REQUEST', '图片地址或路径不是通过上传接口得到的', 400);
+      }
+    } else {
+      return validationFail('type');
+    }
+
+    const existing = clientMessageId
+      ? record.messages.find((item) => item.clientMessageId === clientMessageId)
+      : undefined;
+    if (existing) return apiOk(existing);
+
+    if (record.subscriber.unsubscribedAt) {
+      return apiFail('1018', '用户已屏蔽 Bot，无法发送', 400);
+    }
+    const message: ChatMessage = {
+      id: crypto.randomUUID(),
+      direction: 'out',
+      source: 'operator',
+      messageType: body.type,
+      text,
+      imageUrl: body.type === 'image' ? (body.imageUrl ?? null) : null,
+      telegramMessageId: record.messages.length + 1,
+      clientMessageId,
+      createdAt: new Date().toISOString(),
+    };
+    record.messages.push(message);
+    // 发送成功会同时把已读时间推到现在
+    record.unreadCount = 0;
+    return apiOk(message);
+  }),
+
+  // 标记会话已读：未读数清零
+  http.put(`${API_BASE}/bots/:id/chats/:chatId/read`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const botId = String(params.id);
+    if (!mockBots.some((item) => item.id === botId)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const record = (mockChats.get(botId) ?? []).find(
+      (item) => item.subscriber.id === params.chatId,
+    );
+    if (!record) return apiFail('NOT_FOUND', '会话不存在', 404);
+    record.unreadCount = 0;
+    return apiOk({ readAt: new Date().toISOString() });
   }),
 ];

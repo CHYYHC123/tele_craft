@@ -1,41 +1,25 @@
-import type { Chat } from '@/views/user-chat/types';
 import {
-  filterChats,
   formatDateLabel,
+  formatListTime,
   formatMessageTime,
-  getLastMessagePreview,
+  getAvatarTone,
+  getChatName,
 } from '@/views/user-chat/utils';
 
-const makeChat = (name: string, sender: 'user' | 'bot', text: string): Chat => ({
-  id: 1,
-  name,
-  tone: 'blue',
-  lastTime: '11:00 AM',
-  folder: 'open',
-  mutedFor: null,
-  messages: [{ id: 1, sender, text, time: '11:00', dateLabel: 'August 15, 2024' }],
-});
+describe('getChatName', () => {
+  const base = { firstName: '', lastName: null, username: null, telegramUserId: '99' };
 
-describe('getLastMessagePreview', () => {
-  it('客服自己发的消息加 You: 前缀', () => {
-    expect(getLastMessagePreview(makeChat('Ahmet', 'bot', 'Hi'))).toBe('You: Hi');
-  });
-
-  it('用户消息原样返回', () => {
-    expect(getLastMessagePreview(makeChat('Ahmet', 'user', 'Hello'))).toBe('Hello');
+  it('姓名优先，其次用户名，最后是 Telegram 用户 id', () => {
+    expect(getChatName({ ...base, firstName: 'Ada', lastName: 'Lovelace' })).toBe('Ada Lovelace');
+    expect(getChatName({ ...base, firstName: 'Ada' })).toBe('Ada');
+    expect(getChatName({ ...base, username: 'ada' })).toBe('ada');
+    expect(getChatName(base)).toBe('99');
   });
 });
 
-describe('filterChats', () => {
-  const chats = [makeChat('Ahmet', 'user', 'Hello'), makeChat('xiao', 'user', 'refund please')];
-
-  it('空搜索返回全部', () => {
-    expect(filterChats(chats, ' ')).toEqual(chats);
-  });
-
-  it('按用户名或消息内容匹配，忽略大小写', () => {
-    expect(filterChats(chats, 'AHM')).toEqual([chats[0]]);
-    expect(filterChats(chats, 'Refund')).toEqual([chats[1]]);
+describe('getAvatarTone', () => {
+  it('同一个用户 id 始终得到同一种底色', () => {
+    expect(getAvatarTone('6228099601')).toBe(getAvatarTone('6228099601'));
   });
 });
 
@@ -47,5 +31,12 @@ describe('时间格式化', () => {
 
   it('日期分隔文案', () => {
     expect(formatDateLabel(new Date(2024, 7, 15))).toBe('August 15, 2024');
+  });
+
+  it('列表时间：当天显示时刻，一周内显示星期，更早显示日期', () => {
+    const now = new Date(2024, 7, 15, 12, 0);
+    expect(formatListTime(new Date(2024, 7, 15, 11, 55), now)).toBe('11:55 AM');
+    expect(formatListTime(new Date(2024, 7, 13, 9, 0), now)).toBe('Tue');
+    expect(formatListTime(new Date(2024, 6, 1, 9, 0), now)).toBe('07/01/2024');
   });
 });

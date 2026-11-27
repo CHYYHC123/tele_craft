@@ -1,88 +1,68 @@
-import { useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { INITIAL_CHATS } from '@/views/user-chat/constants';
-import type { Chat, ChatFolder } from '@/views/user-chat/types';
-import {
-  filterChats,
-  formatDateLabel,
-  formatListTime,
-  formatMessageTime,
-} from '@/views/user-chat/utils';
+import { useBotsQuery } from '@/hooks/useBots';
+import { useChatsQuery, useUpdateChatStatus } from '@/hooks/useChats';
+import { useBotStore } from '@/store/bot';
+import type { ChatCounts, ChatSession, ChatStatus } from '@/types/chat';
+import { resolveCurrentBot } from '@/utils/bot';
+import { CHAT_LIST_PAGE_SIZE, CHAT_SEARCH_DEBOUNCE_MS } from '@/views/user-chat/constants';
 
+const EMPTY_COUNTS: ChatCounts = { open: 0, muted: 0, closed: 0 };
+const EMPTY_CHATS: ChatSession[] = [];
+
+/** 聊天页：当前 Bot、分组筛选、搜索（防抖）、会话列表与选中会话 */
 export const useUserChat = () => {
-  const [chats, setChats] = useState<Chat[]>(INITIAL_CHATS);
-  const [folder, setFolderState] = useState<ChatFolder>('open');
+  const selectedBotId = useBotStore((state) => state.selectedBotId);
+  const { data: bots = [], isPending: isBotsPending } = useBotsQuery();
+  const bot = resolveCurrentBot(bots, selectedBotId);
+
+  const [folder, setFolderState] = useState<ChatStatus>('open');
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const nextMessageId = useRef(1000);
+  const [keyword, setKeyword] = useState('');
+  // 选中的会话存一份快照：搜索词把它从列表里筛掉时，右侧聊天不应该跟着消失。
+  // 记下所属 Bot，切换 Bot 后旧会话自然视为未选中
+  const [selection, setSelection] = useState<{ botId: string; chat: ChatSession } | null>(null);
 
-  const folderChats = chats.filter((chat) => chat.folder === folder);
-  const visibleChats = filterChats(folderChats, search);
-  // 会话被静音/关闭后离开当前分组，selected 自然回到 null，右侧显示 "Please select chat"
-  const selected = folderChats.find((chat) => chat.id === selectedId) ?? null;
+  useEffect(() => {
+    const timer = setTimeout(() => setKeyword(search.trim()), CHAT_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const counts: Record<ChatFolder, number> = {
-    open: chats.filter((chat) => chat.folder === 'open').length,
-    muted: chats.filter((chat) => chat.folder === 'muted').length,
-    closed: chats.filter((chat) => chat.folder === 'closed').length,
-  };
+  const botId = bot?.id;
+  const selected = selection && selection.botId === botId ? selection.chat : null;
+  const setSelected = (chat: ChatSession | null) =>
+    setSelection(chat && botId ? { botId, chat } : null);
 
-  const setFolder = (next: ChatFolder) => {
+  const query = useChatsQuery(botId, {
+    status: folder,
+    q: keyword || undefined,
+    pageSize: CHAT_LIST_PAGE_SIZE,
+  });
+  const updateStatus = useUpdateChatStatus(botId);
+
+  const setFolder = (next: ChatStatus) => {
     setFolderState(next);
-    setSelectedId(null);
+    setSelected(null);
     setSearch('');
+    setKeyword('');
   };
 
-  const updateChat = (id: number, update: (chat: Chat) => Chat) => {
-    setChats((prev) => prev.map((chat) => (chat.id === id ? update(chat) : chat)));
-  };
-
-  const muteChat = (id: number, mutedFor: string) => {
-    updateChat(id, (chat) => ({ ...chat, folder: 'muted', mutedFor }));
-  };
-
-  /** 取消静音 / 重新打开：回到 Open chats */
-  const openChat = (id: number) => {
-    updateChat(id, (chat) => ({ ...chat, folder: 'open', mutedFor: null }));
-  };
-
-  const closeChat = (id: number) => {
-    updateChat(id, (chat) => ({ ...chat, folder: 'closed', mutedFor: null }));
-  };
-
-  const sendMessage = (id: number, text: string) => {
-    const content = text.trim();
-    if (!content) return;
-    const now = new Date();
-    const messageId = nextMessageId.current++;
-    updateChat(id, (chat) => ({
-      ...chat,
-      lastTime: formatListTime(now),
-      messages: [
-        ...chat.messages,
-        {
-          id: messageId,
-          sender: 'bot',
-          text: content,
-          time: formatMessageTime(now),
-          dateLabel: formatDateLabel(now),
-        },
-      ],
-    }));
+  /** 修改状态后会话离开当前分组，右侧回到 "Please select chat" */
+  const changeStatus = (chatId: string, status: ChatStatus) => {
+    updateStatus.mutate({ chatId, status }, { onSuccess: () => setSelected(null) });
   };
 
   return {
+    bot,
     folder,
     setFolder,
-    counts,
+    counts: query.data?.counts ?? EMPTY_COUNTS,
     search,
     setSearch,
-    chats: visibleChats,
+    chats: query.data?.items ?? EMPTY_CHATS,
+    isLoading: isBotsPending || (!!botId && query.isPending),
     selected,
-    selectChat: setSelectedId,
-    muteChat,
-    openChat,
-    closeChat,
-    sendMessage,
+    selectChat: setSelected,
+    changeStatus,
   };
 };

@@ -6,23 +6,25 @@ import ChatListItem from '@/views/user-chat/components/ChatListItem';
 import DropdownMenu from '@/components/DropdownMenu';
 import EmptyChatList from '@/views/user-chat/components/EmptyChatList';
 import { FOLDER_OPTIONS } from '@/views/user-chat/constants';
-import type { Chat, ChatFolder } from '@/views/user-chat/types';
+import type { ChatCounts, ChatSession, ChatStatus } from '@/types/chat';
 
 interface ChatSidebarProps {
-  folder: ChatFolder;
-  counts: Record<ChatFolder, number>;
-  chats: Chat[];
-  selectedId: number | null;
+  folder: ChatStatus;
+  counts: ChatCounts;
+  chats: ChatSession[];
+  loading: boolean;
+  selectedId: string | null;
   search: string;
   onSearch: (value: string) => void;
-  onFolderChange: (folder: ChatFolder) => void;
-  onSelect: (id: number) => void;
+  onFolderChange: (folder: ChatStatus) => void;
+  onSelect: (chat: ChatSession) => void;
 }
 
 const ChatSidebar: FC<ChatSidebarProps> = ({
   folder,
   counts,
   chats,
+  loading,
   selectedId,
   search,
   onSearch,
@@ -97,7 +99,9 @@ const ChatSidebar: FC<ChatSidebarProps> = ({
       </label>
 
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto border-t border-[#e4e7ee]">
-        {chats.length === 0 ? (
+        {loading ? (
+          <p className="pt-14 text-center text-sm text-[#8a90a0]">Loading...</p>
+        ) : chats.length === 0 ? (
           <EmptyChatList />
         ) : (
           <ul>
