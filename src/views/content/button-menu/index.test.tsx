@@ -3,12 +3,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
 
-import { resetMockBots, resetMockKeyboards } from '@/mocks/handlers';
+import {
+  resetMockBots,
+  resetMockKeyboards,
+  resetMockMenus,
+  resetMockMenuStrategies,
+} from '@/mocks/handlers';
 import { apiFail, apiOk } from '@/mocks/response';
 import { server } from '@/mocks/server';
 import { useBotStore } from '@/store/bot';
 import { useUserStore } from '@/store/user';
-import type { KeyboardButton, KeyboardButtonParams } from '@/types/bot';
+import type { BotMenu, KeyboardButton, KeyboardButtonParams, MenuStrategy } from '@/types/bot';
 import { DEFAULT_MESSAGE } from '@/utils/message-config';
 import ButtonMenu from '@/views/content/button-menu';
 import { BUTTON_MENU_MAX_COUNT } from '@/views/content/button-menu/constants';
@@ -28,6 +33,18 @@ const button = (id: string, patch: Partial<KeyboardButton> = {}): KeyboardButton
   buttonsEnabled: false,
   buttons: [],
   ...patch,
+});
+
+const menu = (id: string, command: string): BotMenu => ({
+  id,
+  command,
+  commandDescription: `${command} description`,
+  messageType: 'text',
+  imageUrl: null,
+  description: 'Hello',
+  linkUrl: null,
+  buttonsEnabled: false,
+  buttons: [],
 });
 
 /** 空状态右侧卡片的新增按钮 */
@@ -80,6 +97,87 @@ describe('ButtonMenu', () => {
     expect(await screen.findByText(EMPTY_TEXT)).toBeInTheDocument();
     expect(screen.queryByText('Menu information')).not.toBeInTheDocument();
     expect(screen.getByText(BOT.displayName)).toBeInTheDocument();
+  });
+
+  it('没有按钮时也显示下发策略，未保存过时是默认值', async () => {
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
+
+    expect(await screen.findByRole('switch', { name: 'Dispatch strategy' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: '/menu' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'message' })).not.toBeChecked();
+    expect(screen.getByRole('combobox', { name: 'Default /menu command' })).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Save strategy' })).toBeDisabled();
+  });
+
+  it('读取已保存的下发策略', async () => {
+    resetMockMenuStrategies({
+      b1: { enabled: false, strategy: 'keyboard', defaultMenuId: null },
+    });
+    renderPage();
+
+    expect(await screen.findByRole('switch', { name: 'Dispatch strategy' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Button menu' })).toBeChecked();
+    expect(screen.getByText('Primary reply keyboard')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '/menu' })).toBeDisabled();
+  });
+
+  it('下发渠道单选，总开关关闭后全部禁用', async () => {
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
+
+    await userEvent.click(screen.getByRole('radio', { name: 'message' }));
+    expect(screen.getByRole('radio', { name: '/menu' })).not.toBeChecked();
+    expect(screen.getByText('Standard chat message')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save strategy' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Dispatch strategy' }));
+    expect(screen.getByRole('radio', { name: '/menu' })).toBeDisabled();
+  });
+
+  it('保存下发策略时 PUT 三个字段，成功后保存按钮回到禁用', async () => {
+    resetMockMenus({ b1: [menu('m1', 'help'), menu('m2', 'faq')] });
+    let body: MenuStrategy | undefined;
+    server.use(
+      http.put(`${API}/bots/b1/menu-strategy`, async ({ request }) => {
+        body = (await request.json()) as MenuStrategy;
+        return apiOk(body);
+      }),
+    );
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
+
+    await screen.findByRole('option', { name: '/faq' });
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Default /menu command' }),
+      'm2',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save strategy' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({ enabled: true, strategy: 'command', defaultMenuId: 'm2' }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save strategy' })).toBeDisabled(),
+    );
+    expect(screen.getByRole('combobox', { name: 'Default /menu command' })).toHaveValue('m2');
+  });
+
+  it('保存下发策略失败时草稿保留，可以重试', async () => {
+    server.use(
+      http.put(`${API}/bots/b1/menu-strategy`, () => apiFail('1017', 'Telegram 拒绝同步', 400)),
+    );
+    renderPage();
+    await screen.findByText(EMPTY_TEXT);
+
+    await userEvent.click(screen.getByRole('radio', { name: 'message' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save strategy' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save strategy' })).toBeEnabled(),
+    );
+    expect(screen.getByRole('radio', { name: 'message' })).toBeChecked();
   });
 
   it('读取已保存的布局并按行展示，默认选中第一个', async () => {

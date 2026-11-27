@@ -6,6 +6,7 @@ import {
   resetMockAutoReplies,
   resetMockBots,
   resetMockMenus,
+  resetMockMenuStrategies,
   resetMockSubscribers,
   resetMockWelcomes,
 } from '@/mocks/handlers';
@@ -20,6 +21,7 @@ afterEach(() => {
   server.resetHandlers();
   resetMockBots();
   resetMockMenus();
+  resetMockMenuStrategies();
   resetMockSubscribers();
   resetMockWelcomes();
   resetMockAutoReplies();

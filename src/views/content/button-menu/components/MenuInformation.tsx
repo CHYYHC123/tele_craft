@@ -37,7 +37,7 @@ const MenuInformation: FC<MenuInformationProps> = ({
   ...handlers
 }) => {
   return (
-    <section className="w-full min-w-0 flex-1 rounded-2xl bg-white p-6">
+    <section className="w-full min-w-0 rounded-2xl bg-white p-6">
       <header className="flex items-center justify-between gap-4 border-b border-[#e4e7ee] pb-5">
         <h2 className="text-base font-semibold">Menu information</h2>
         <MenuPanelActions

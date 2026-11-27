@@ -9,7 +9,7 @@ interface EmptyMenuCardProps {
 
 const EmptyMenuCard: FC<EmptyMenuCardProps> = ({ canAdd, onAdd }) => {
   return (
-    <section className="w-full min-w-0 flex-1 rounded-2xl bg-white p-6">
+    <section className="w-full min-w-0 rounded-2xl bg-white p-6">
       <p className="text-xl font-bold">No custom menu configured yet.</p>
       <p className="text-sm">
         Add quick-reply buttons on the left to build a bottom menu bar for your bot—helping users

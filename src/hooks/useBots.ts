@@ -13,6 +13,7 @@ import {
   getBotAutoReply,
   getBotKeyboard,
   getBotMenus,
+  getBotMenuStrategy,
   getBotStats,
   getBotSubscribers,
   getBotStartMessage,
@@ -24,6 +25,7 @@ import {
   updateBotKeyboardLayout,
   updateBotKeywordReply,
   updateBotMenu,
+  updateBotMenuStrategy,
   updateBotStartMessage,
   updateBotWelcome,
   uploadBotKeyboardImage,
@@ -40,6 +42,7 @@ import type {
   KeyboardButtonParams,
   KeyboardLayout,
   KeywordReplyParams,
+  MenuStrategyParams,
   SubscribersParams,
   UpdateAutoReplyParams,
   UpdateBotParams,
@@ -58,6 +61,8 @@ export const botAutoReplyQueryKey = (botId: string | undefined) =>
 export const botMenusQueryKey = (botId: string | undefined) => ['bots', botId, 'menus'] as const;
 export const botKeyboardQueryKey = (botId: string | undefined) =>
   ['bots', botId, 'keyboard'] as const;
+export const botMenuStrategyQueryKey = (botId: string | undefined) =>
+  ['bots', botId, 'menu-strategy'] as const;
 export const botSubscribersQueryKey = (botId: string | undefined, params: SubscribersParams) =>
   ['bots', botId, 'subscribers', params] as const;
 
@@ -381,6 +386,27 @@ export const useUploadKeyboardImage = (botId: string | undefined) =>
   useMutation({
     mutationFn: (file: File) => uploadBotKeyboardImage(botId as string, file),
   });
+
+/** 下发策略；没有 Bot 时不请求，未保存过时服务端返回默认值 */
+export const useBotMenuStrategyQuery = (botId: string | undefined) =>
+  useQuery({
+    queryKey: botMenuStrategyQueryKey(botId),
+    queryFn: () => getBotMenuStrategy(botId as string),
+    enabled: !!botId,
+  });
+
+/** 保存下发策略：成功后用服务端返回值覆盖缓存；错误由请求拦截器统一 toast */
+export const useUpdateBotMenuStrategy = (botId: string | undefined) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: MenuStrategyParams) => updateBotMenuStrategy(botId as string, data),
+    onSuccess: (strategy) => {
+      queryClient.setQueryData(botMenuStrategyQueryKey(botId), strategy);
+      toast.success('Dispatch strategy saved');
+    },
+  });
+};
 
 /** 导出订阅者 CSV 并触发浏览器下载 */
 export const useExportSubscribers = () =>

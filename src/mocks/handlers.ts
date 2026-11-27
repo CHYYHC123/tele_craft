@@ -13,6 +13,7 @@ import type {
   KeyboardLayout,
   KeywordReplyParams,
   KeywordReplyRule,
+  MenuStrategy,
   StartMessage,
   StartMessageImage,
   Subscriber,
@@ -122,6 +123,21 @@ export function resetMockMenus(menus: Record<string, BotMenu[]> = {}) {
   mockMenus.clear();
   mockMenuImages.clear();
   Object.entries(menus).forEach(([id, value]) => mockMenus.set(id, value));
+}
+
+/** 下发策略（内存态，按 bot id 存；没有记录表示未保存过，读取时返回默认值） */
+const mockMenuStrategies = new Map<string, MenuStrategy>();
+
+const DEFAULT_MENU_STRATEGY: MenuStrategy = {
+  enabled: true,
+  strategy: 'command',
+  defaultMenuId: null,
+};
+
+/** 测试用：重置/预置 mock 下发策略 */
+export function resetMockMenuStrategies(strategies: Record<string, MenuStrategy> = {}) {
+  mockMenuStrategies.clear();
+  Object.entries(strategies).forEach(([id, value]) => mockMenuStrategies.set(id, value));
 }
 
 /** 去掉开头的 / 并转成小写 */
@@ -886,6 +902,50 @@ export const handlers = [
       menus.filter((item) => item.id !== menuId),
     );
     return apiOk(null);
+  }),
+
+  // 读取下发策略（未保存过时返回默认值）
+  http.get(`${API_BASE}/bots/:id/menu-strategy`, ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    return apiOk<MenuStrategy>(mockMenuStrategies.get(id) ?? DEFAULT_MENU_STRATEGY);
+  }),
+
+  // 保存下发策略：三个字段都必填；defaultMenuId 必须是这个 bot 的命令菜单项或 null
+  http.put(`${API_BASE}/bots/:id/menu-strategy`, async ({ request, params }) => {
+    if (!request.headers.get('authorization')) {
+      return apiFail('UNAUTHORIZED', '未登录或登录已失效', 401);
+    }
+    const id = String(params.id);
+    if (!mockBots.some((item) => item.id === id)) {
+      return apiFail('NOT_FOUND', 'Bot 不存在', 404);
+    }
+    const body = (await request.json().catch(() => null)) as Partial<MenuStrategy> | null;
+    if (
+      typeof body?.enabled !== 'boolean' ||
+      !['command', 'keyboard', 'message'].includes(String(body.strategy)) ||
+      (body.defaultMenuId !== null && typeof body.defaultMenuId !== 'string')
+    ) {
+      return apiFail('VALIDATION_ERROR', '参数校验失败', 400, [{ path: [], message: 'Invalid' }]);
+    }
+    if (
+      body.defaultMenuId &&
+      !(mockMenus.get(id) ?? []).some((item) => item.id === body.defaultMenuId)
+    ) {
+      return apiFail('BAD_REQUEST', '默认菜单项不存在', 400);
+    }
+    const model: MenuStrategy = {
+      enabled: body.enabled,
+      strategy: body.strategy as MenuStrategy['strategy'],
+      defaultMenuId: body.defaultMenuId,
+    };
+    mockMenuStrategies.set(id, model);
+    return apiOk(model);
   }),
 
   // 读取键盘按钮布局（未配置时 rows 是空数组）

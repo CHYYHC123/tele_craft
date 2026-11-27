@@ -11,6 +11,8 @@ import type {
   KeyboardLayout,
   KeywordReplyParams,
   KeywordReplyRule,
+  MenuStrategy,
+  MenuStrategyParams,
   BotMenu,
   BotMenuImage,
   BotMenuParams,
@@ -121,6 +123,14 @@ export const deleteBotKeyboardButton = (id: string, buttonId: string) =>
 /** 提交整份键盘布局：外层是行，内层是该行从左到右的按钮 id；必须带全部按钮，每行 1-3 个 */
 export const updateBotKeyboardLayout = (id: string, rows: string[][]) =>
   http.put<KeyboardLayout>(`/bots/${id}/keyboard/layout`, { rows });
+
+/** 读取下发策略；还没保存过时返回默认值：开启、command、没有默认菜单项 */
+export const getBotMenuStrategy = (id: string) =>
+  http.get<MenuStrategy>(`/bots/${id}/menu-strategy`);
+
+/** 保存下发策略：服务端先同步 Telegram 命令列表，成功后才写库；返回已保存的策略 */
+export const updateBotMenuStrategy = (id: string, data: MenuStrategyParams) =>
+  http.put<MenuStrategy>(`/bots/${id}/menu-strategy`, data);
 
 /** 首页四张统计卡的数字 */
 export const getBotStats = (id: string) => http.get<BotStats>(`/bots/${id}/stats`);

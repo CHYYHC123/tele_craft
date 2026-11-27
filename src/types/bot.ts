@@ -204,3 +204,20 @@ export type KeyboardButtonParams = Omit<KeyboardButton, 'id'>;
 export interface KeyboardImage {
   imageUrl: string;
 }
+
+/** 下发策略：command 是 /menu 命令菜单，keyboard 是按钮菜单，message 是带 inline 按钮的消息 */
+export type MenuStrategyType = 'command' | 'keyboard' | 'message';
+
+/**
+ * 菜单怎么送到订阅者手里（Dispatch strategy）。
+ * enabled 是总开关；defaultMenuId 是 /menu 回复的命令菜单项 id，没选时为 null。
+ * 未保存过时服务端返回默认值：开启、command、null。
+ */
+export interface MenuStrategy {
+  enabled: boolean;
+  strategy: MenuStrategyType;
+  defaultMenuId: string | null;
+}
+
+/** 保存下发策略的请求体：三个字段都必填，defaultMenuId 可以是 null */
+export type MenuStrategyParams = MenuStrategy;

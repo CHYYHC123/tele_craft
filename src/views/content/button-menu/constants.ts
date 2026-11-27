@@ -1,3 +1,8 @@
+import type { LucideIcon } from 'lucide-react';
+import { LayoutGrid, MessageSquare, Terminal } from 'lucide-react';
+
+import type { MenuStrategyType } from '@/types/bot';
+
 /** 键盘按钮最多 30 个 */
 export const BUTTON_MENU_MAX_COUNT = 30;
 
@@ -15,3 +20,22 @@ export const BUTTON_MESSAGE_MAX_LENGTH = 1024;
 
 /** 按钮没有填写名称时，在预览里显示的文案 */
 export const DEFAULT_BUTTON_LABEL = 'Button';
+
+export interface DispatchChannelConfig {
+  id: MenuStrategyType;
+  label: string;
+  icon: LucideIcon;
+}
+
+/** 下发渠道（对应 strategy 的三个取值），顺序即展示顺序 */
+export const DISPATCH_CHANNELS: DispatchChannelConfig[] = [
+  { id: 'command', label: '/menu', icon: Terminal },
+  { id: 'keyboard', label: 'Button menu', icon: LayoutGrid },
+  { id: 'message', label: 'message', icon: MessageSquare },
+];
+
+/** 选中非 /menu 渠道时，下方显示的说明 */
+export const DISPATCH_CHANNEL_NOTES: Partial<Record<MenuStrategyType, string>> = {
+  keyboard: 'Primary reply keyboard',
+  message: 'Standard chat message',
+};
